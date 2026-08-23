@@ -1,0 +1,102 @@
+services:
+  # === FastAPI Backend ===
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: merchantmind-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - merchantmind-network
+
+  # === Next.js Frontend ===
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: merchantmind-frontend
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - merchantmind-network
+
+  # === PostgreSQL Database ===
+  postgres:
+    image: postgres:16-alpine
+    container_name: merchantmind-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-merchantmind}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-merchantmind_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-merchantmind}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-merchantmind}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - merchantmind-network
+
+  # === Redis Cache ===
+  redis:
+    image: redis:7-alpine
+    container_name: merchantmind-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - merchantmind-network
+
+  # === Nginx Reverse Proxy ===
+  nginx:
+    image: nginx:alpine
+    container_name: merchantmind-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+    networks:
+      - merchantmind-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  merchantmind-network:
+    driver: bridge

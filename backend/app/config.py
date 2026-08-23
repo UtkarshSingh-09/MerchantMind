@@ -36,8 +36,12 @@ class Settings(BaseSettings):
     whatsapp_phone_number_id: str = ""
     whatsapp_verify_token: str = ""
 
-    # CORS
-    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:80"]
+    # CORS — stored as comma-separated string
+    cors_origins_str: str = "http://localhost:3000,http://localhost:80"
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_origins_str.split(",")]
 
     model_config = {
         "env_file": ".env",

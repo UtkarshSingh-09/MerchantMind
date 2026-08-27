@@ -1,44 +1,40 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  Sparkles,
-  TrendingUp,
-  AlertCircle,
-  ShoppingCart,
-  ShieldAlert,
-  ArrowRight,
-  X,
-  Lock,
-  ChevronDown,
-  Layers,
-  Cpu,
-  ShieldCheck,
-  Zap,
-} from "lucide-react";
+import { Lock, X, ChevronDown } from "lucide-react";
 import { ParticleConstellation } from "@/components/ParticleConstellation";
 import { LiquidMetalButton } from "@/components/ui/liquid-metal-button";
 
 export default function HomePage() {
   const router = useRouter();
   const [showVaultModal, setShowVaultModal] = useState(false);
+  const [scrollY, setScrollY] = useState(0);
 
-  const handleLaunchStore = () => {
-    router.push("/chat");
-  };
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrollY(window.scrollY || window.pageYOffset);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Calculate scroll progress for opacity fades
+  const windowH = typeof window !== "undefined" ? window.innerHeight : 800;
+  const heroOpacity = Math.max(0, 1 - scrollY / (windowH * 0.45));
+  const introOpacity = Math.min(Math.max((scrollY - windowH * 0.35) / (windowH * 0.35), 0), 1);
 
   return (
-    <div className="relative min-h-screen bg-[#000000] text-[#e2e2e2] selection:bg-[#3395FF] selection:text-white overflow-x-hidden">
-      {/* Three.js 3D Particle Constellation & Multi-Node Network */}
+    <div className="relative min-h-[220vh] bg-[#000000] text-[#e2e2e2] selection:bg-[#3395FF] selection:text-white overflow-x-hidden">
+      {/* 3D WebGL Particle Universe: Expands Monogram & Reveals Multi-Node Network */}
       <ParticleConstellation />
 
       {/* Top Ambient Glow */}
       <div className="pointer-events-none fixed top-0 left-1/2 -translate-x-1/2 h-[450px] w-[900px] bg-gradient-to-tr from-[#3395FF]/12 via-[#00C0F9]/10 to-transparent blur-[160px] rounded-full z-0" />
 
       {/* Top Navigation Bar — Exact Stitch Design */}
-      <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-[#000000]/70 backdrop-blur-xl transition-all duration-300">
+      <header className="fixed top-0 left-0 right-0 z-50 w-full border-b border-white/10 bg-[#000000]/70 backdrop-blur-xl transition-all duration-300">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           {/* Brand Logo in Editorial Serif */}
           <div className="flex items-center gap-3">
@@ -53,19 +49,19 @@ export default function HomePage() {
           {/* Minimalist Navigation Links */}
           <nav className="hidden md:flex items-center gap-8 text-sm">
             <a
-              href="#metrics"
+              href="#"
               className="text-[#94A3B8] hover:text-white transition-colors"
             >
               Analytics
             </a>
             <a
-              href="#network"
+              href="#"
               className="text-[#94A3B8] hover:text-white transition-colors"
             >
               Intelligence
             </a>
             <a
-              href="#architecture"
+              href="#"
               className="text-[#94A3B8] hover:text-white transition-colors"
             >
               Architecture
@@ -85,12 +81,17 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* Main Container */}
-      <main className="relative z-10 flex flex-col items-center">
-        {/* ========================================================================= */}
-        {/* CHAPTER 1: PARTICLE MONOGRAM HERO                                         */}
-        {/* ========================================================================= */}
-        <section className="relative flex min-h-[92vh] w-full max-w-5xl flex-col items-center justify-center px-6 text-center pt-8">
+      {/* ========================================================================= */}
+      {/* CHAPTER 1: HERO VIEW ("Step into the world of agentic payments.")         */}
+      {/* ========================================================================= */}
+      <div
+        className="fixed inset-0 z-10 flex flex-col items-center justify-center px-6 text-center pointer-events-none transition-opacity duration-150"
+        style={{
+          opacity: heroOpacity,
+          display: heroOpacity <= 0 ? "none" : "flex",
+        }}
+      >
+        <div className="max-w-4xl mx-auto flex flex-col items-center">
           {/* Editorial Headline */}
           <h1 className="font-editorial text-5xl sm:text-7xl lg:text-[84px] leading-[1.05] tracking-tight text-white max-w-4xl drop-shadow-2xl">
             Step into the world of{" "}
@@ -100,247 +101,39 @@ export default function HomePage() {
           {/* Narrative Subhead */}
           <p className="mt-8 text-base sm:text-lg text-[#94A3B8] max-w-2xl font-light leading-relaxed">
             For years, digital storefronts built static filters and manual search.
-            But they existed in isolation. What if one autonomous model could
+            But they existed in isolation. What if one model could
             understand catalogs, intent, upselling, and payments as a whole?
           </p>
+        </div>
 
-          {/* Scroll cue */}
-          <div className="absolute bottom-6 flex flex-col items-center gap-2 opacity-60 hover:opacity-100 transition animate-bounce">
-            <span className="text-[10px] font-mono tracking-widest text-[#94A3B8] uppercase">
-              Scroll to explore
-            </span>
-            <ChevronDown className="w-4 h-4 text-[#00C0F9]" />
-          </div>
-        </section>
-
-        {/* ========================================================================= */}
-        {/* CHAPTER 2: THE MULTI-NODE NETWORK                                         */}
-        {/* ========================================================================= */}
-        <section
-          id="network"
-          className="relative flex min-h-screen w-full max-w-6xl flex-col items-center justify-center px-6 py-24 text-center"
-        >
-          {/* Super-title */}
-          <div className="mb-4 font-mono text-[11px] tracking-[0.3em] uppercase text-[#00C0F9]">
-            T H E   M U L T I - N O D E   N E T W O R K
-          </div>
-
-          {/* Headline */}
-          <h2 className="font-editorial text-4xl sm:text-6xl text-white tracking-tight max-w-3xl">
-            Built ML models in isolation.
-          </h2>
-
-          {/* Subtitle */}
-          <p className="mt-6 text-base sm:text-lg text-[#94A3B8] max-w-2xl font-light">
-            Legacy systems operated as silos. MerchantMind bridges the gap
-            between infrastructure and intelligence, creating an autonomous
-            agentic network.
-          </p>
-
-          {/* Telemetry Node Pills Grid (Holographic Overlay over 3D World) */}
-          <div className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-3.5 max-w-4xl w-full">
-            {[
-              { label: "ISSUING BANK", color: "border-white/15 text-zinc-300" },
-              { label: "NETWORK", color: "border-[#3395FF]/40 text-[#a5c8ff]" },
-              { label: "ACQUIRING BANK", color: "border-white/15 text-zinc-300" },
-              { label: "PAYMENT PROCESSOR", color: "border-white/15 text-zinc-300" },
-              {
-                label: "CHARGEBACK PROTECTION",
-                color: "border-emerald-500/40 text-emerald-400 bg-emerald-500/5",
-              },
-              {
-                label: "SUCCESS RATE OPTIMIZATION",
-                color: "border-[#00C0F9]/40 text-[#00C0F9] bg-[#00C0F9]/5",
-              },
-              {
-                label: "CHECKOUT PERSONALISATION",
-                color: "border-[#3395FF]/40 text-[#a5c8ff] bg-[#3395FF]/5",
-              },
-              {
-                label: "FRAUD DETECTION",
-                color: "border-rose-500/40 text-rose-400 bg-rose-500/5",
-              },
-            ].map((node, i) => (
-              <div
-                key={i}
-                className={`glass-card rounded-lg p-3.5 border ${node.color} flex items-center justify-center text-center transition-all duration-300 hover:scale-[1.03] hover:border-white/40`}
-              >
-                <span className="font-mono text-xs tracking-wider font-medium">
-                  [{node.label}]
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ========================================================================= */}
-        {/* CHAPTER 3: THE 4 TALL BENTO STAT SLABS                                    */}
-        {/* ========================================================================= */}
-        <section
-          id="metrics"
-          className="relative w-full max-w-6xl px-6 py-24 flex flex-col items-center"
-        >
-          <div className="text-center mb-16">
-            <div className="font-mono text-[11px] tracking-[0.3em] uppercase text-[#00C0F9] mb-3">
-              A U T O N O M O U S   I M P A C T
-            </div>
-            <h2 className="font-editorial text-4xl sm:text-6xl text-white tracking-tight">
-              Quantifiable Growth for Razorpay Merchants
-            </h2>
-          </div>
-
-          {/* 4 Bento Glass Cards Horizon */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 w-full">
-            {/* Card 1 */}
-            <div className="glass-panel rounded-xl p-8 flex flex-col justify-between border border-white/10 hover:border-[#3395FF]/40 transition-all duration-300 group hover:-translate-y-1">
-              <div>
-                <div className="h-10 w-10 rounded-lg bg-[#3395FF]/10 border border-[#3395FF]/30 flex items-center justify-center text-[#3395FF] mb-6">
-                  <TrendingUp className="w-5 h-5" />
-                </div>
-                <div className="font-editorial text-4xl sm:text-5xl text-white font-normal group-hover:text-[#a5c8ff] transition">
-                  8-10%
-                </div>
-                <div className="font-editorial text-xl italic text-zinc-300 mt-2">
-                  improvement in success rates
-                </div>
-              </div>
-              <p className="mt-8 text-xs text-[#94A3B8] font-light leading-relaxed border-t border-white/10 pt-4">
-                Real-time dynamic payment routing, autonomous retries, and UPI intent deep-links.
-              </p>
-            </div>
-
-            {/* Card 2 */}
-            <div className="glass-panel rounded-xl p-8 flex flex-col justify-between border border-white/10 hover:border-amber-500/40 transition-all duration-300 group hover:-translate-y-1">
-              <div>
-                <div className="h-10 w-10 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-6">
-                  <AlertCircle className="w-5 h-5" />
-                </div>
-                <div className="font-editorial text-4xl sm:text-5xl text-white font-normal group-hover:text-amber-300 transition">
-                  5X more
-                </div>
-                <div className="font-editorial text-xl italic text-zinc-300 mt-2">
-                  disputed transactions identified
-                </div>
-              </div>
-              <p className="mt-8 text-xs text-[#94A3B8] font-light leading-relaxed border-t border-white/10 pt-4">
-                Proactive chargeback intelligence and automated customer resolution workflows.
-              </p>
-            </div>
-
-            {/* Card 3 (Elevated) */}
-            <div className="glass-panel rounded-xl p-8 flex flex-col justify-between border border-[#00C0F9]/40 bg-white/[0.03] shadow-2xl shadow-[#3395FF]/10 transition-all duration-300 group hover:-translate-y-1">
-              <div>
-                <div className="h-10 w-10 rounded-lg bg-[#00C0F9]/10 border border-[#00C0F9]/30 flex items-center justify-center text-[#00C0F9] mb-6">
-                  <ShoppingCart className="w-5 h-5" />
-                </div>
-                <div className="font-editorial text-3xl sm:text-4xl text-white font-normal group-hover:text-[#00C0F9] transition leading-tight">
-                  Millions of Checkouts
-                </div>
-                <div className="font-editorial text-xl italic text-[#00C0F9] mt-2">
-                  Hyper-Personalized
-                </div>
-              </div>
-              <p className="mt-8 text-xs text-zinc-300 font-light leading-relaxed border-t border-white/10 pt-4">
-                Contextual upselling and natural language cart assembly bounded by hard customer budget limits.
-              </p>
-            </div>
-
-            {/* Card 4 */}
-            <div className="glass-panel rounded-xl p-8 flex flex-col justify-between border border-white/10 hover:border-rose-500/40 transition-all duration-300 group hover:-translate-y-1">
-              <div>
-                <div className="h-10 w-10 rounded-lg bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 mb-6">
-                  <ShieldAlert className="w-5 h-5" />
-                </div>
-                <div className="font-editorial text-4xl sm:text-5xl text-white font-normal group-hover:text-rose-300 transition">
-                  8X more
-                </div>
-                <div className="font-editorial text-xl italic text-zinc-300 mt-2">
-                  international card fraud detected
-                </div>
-              </div>
-              <p className="mt-8 text-xs text-[#94A3B8] font-light leading-relaxed border-t border-white/10 pt-4">
-                Cryptographic HMAC-SHA256 signature auditing and tamper-proof decision traces in PostgreSQL.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* ========================================================================= */}
-        {/* CHAPTER 4: THREE CORE ARCHITECTURAL PILLARS                              */}
-        {/* ========================================================================= */}
-        <section
-          id="architecture"
-          className="relative w-full max-w-5xl px-6 py-20 flex flex-col items-center"
-        >
-          <div className="text-center mb-12">
-            <div className="font-mono text-[11px] tracking-[0.3em] uppercase text-[#00C0F9] mb-3">
-              C O R E   E N G I N E
-            </div>
-            <h2 className="font-editorial text-4xl sm:text-5xl text-white tracking-tight">
-              The Autonomous Merchant Architecture
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
-            <div className="glass-card rounded-xl p-6 border border-white/10">
-              <div className="h-8 w-8 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-[#3395FF] mb-4">
-                <Cpu className="w-4 h-4" />
-              </div>
-              <h3 className="text-base font-semibold text-white font-sans">
-                Llama 3.3 70B & Groq
-              </h3>
-              <p className="mt-2 text-xs text-[#94A3B8] leading-relaxed">
-                Sub-400ms inference with multi-turn tool calling, dietary parsing, and zero-hallucination catalog lookups.
-              </p>
-            </div>
-
-            <div className="glass-card rounded-xl p-6 border border-white/10">
-              <div className="h-8 w-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-4">
-                <Zap className="w-4 h-4" />
-              </div>
-              <h3 className="text-base font-semibold text-white font-sans">
-                Razorpay Payment Engine
-              </h3>
-              <p className="mt-2 text-xs text-[#94A3B8] leading-relaxed">
-                Automated order generation, instant payment links, and HMAC-verified webhook settlement listeners.
-              </p>
-            </div>
-
-            <div className="glass-card rounded-xl p-6 border border-white/10">
-              <div className="h-8 w-8 rounded-lg bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 mb-4">
-                <ShieldCheck className="w-4 h-4" />
-              </div>
-              <h3 className="text-base font-semibold text-white font-sans">
-                100% Budget Guardrails
-              </h3>
-              <p className="mt-2 text-xs text-[#94A3B8] leading-relaxed">
-                Autonomous logic strictly bounds cart totals to user constraints before initiating payment transactions.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* ========================================================================= */}
-        {/* FOOTER                                                                    */}
-        {/* ========================================================================= */}
-        <footer className="w-full border-t border-white/10 py-8 px-6 text-center text-xs text-[#94A3B8]">
-          <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="font-editorial text-lg text-white">MerchantMind</div>
-            <div className="font-mono text-[11px] text-zinc-500">
-              Built for Razorpay AI Buildathon 2026 • Track 01 (AI Growth)
-            </div>
-            <Link
-              href="/chat"
-              className="text-[#00C0F9] hover:underline font-medium"
-            >
-              Open Live Store →
-            </Link>
-          </div>
-        </footer>
-      </main>
+        {/* Scroll cue */}
+        <div className="absolute bottom-8 flex flex-col items-center gap-2 opacity-60 animate-bounce">
+          <span className="text-[10px] font-mono tracking-widest text-[#94A3B8] uppercase">
+            Scroll to enter
+          </span>
+          <ChevronDown className="w-4 h-4 text-[#00C0F9]" />
+        </div>
+      </div>
 
       {/* ========================================================================= */}
-      {/* CHAPTER 5: CONNECT VAULT APERTURE FLASH MODAL                             */}
+      {/* CHAPTER 2: MULTI-NODE NETWORK VIEW ("Introducing MerchantMind")           */}
+      {/* ========================================================================= */}
+      <div
+        className="fixed inset-0 z-10 flex flex-col items-center justify-center px-6 text-center pointer-events-none transition-opacity duration-200"
+        style={{
+          opacity: introOpacity,
+          display: introOpacity <= 0 ? "none" : "flex",
+        }}
+      >
+        <div className="max-w-4xl mx-auto flex flex-col items-center">
+          <h2 className="font-editorial text-5xl sm:text-7xl lg:text-[80px] leading-[1.08] tracking-tight text-white max-w-3xl drop-shadow-2xl">
+            Introducing <span className="italic text-[#3395FF]">MerchantMind</span>
+          </h2>
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* CONNECT VAULT APERTURE FLASH MODAL                                        */}
       {/* ========================================================================= */}
       {showVaultModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-xl animate-in fade-in duration-300">

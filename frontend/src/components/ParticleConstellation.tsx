@@ -267,9 +267,10 @@ export function ParticleConstellation() {
       animationFrameId = requestAnimationFrame(animate);
       const time = t * 0.001;
 
-      // Scroll mapping (0 at top, 1 at full depth)
+      // Total scroll range mapping
       const windowH = typeof window !== "undefined" ? window.innerHeight : 800;
-      const scrollProgress = Math.min(scrollY / (windowH * 0.85), 1.0);
+      const totalScrollRange = windowH * 2.2;
+      const scrollRatio = Math.min(scrollY / totalScrollRange, 1.2);
 
       // Smooth Camera Parallax
       camera.position.x += (targetX * 3 - camera.position.x) * 0.05;
@@ -277,25 +278,29 @@ export function ParticleConstellation() {
       camera.lookAt(scene.position);
 
       // Hero Sphere Expansion: expands "big, big, big, big, big" & disperses
-      const heroScale = 1.0 + Math.pow(scrollProgress * 2.8, 2.5);
+      const heroProgress = Math.min(scrollY / (windowH * 0.5), 1.0);
+      const heroScale = 1.0 + Math.pow(heroProgress * 3.2, 2.5);
       heroGroup.scale.set(heroScale, heroScale, heroScale);
       heroGroup.rotation.y = time * 0.08;
       heroGroup.rotation.x = time * 0.04;
 
-      if (scrollProgress < 0.35) {
+      if (heroProgress < 0.25) {
         heroMaterial.opacity = 0.85;
       } else {
-        heroMaterial.opacity = Math.max(0, 0.85 * (1.0 - (scrollProgress - 0.35) / 0.45));
+        heroMaterial.opacity = Math.max(0, 0.85 * (1.0 - (heroProgress - 0.25) / 0.5));
       }
 
-      // Radar Tunnel & Monoliths reveal as hero sphere opens
-      if (scrollProgress < 0.15) {
+      // Radar Tunnel & Monoliths reveal as hero sphere opens and travels forward
+      if (scrollY < windowH * 0.15) {
         radarMainGroup.visible = false;
       } else {
         radarMainGroup.visible = true;
-        const radarProgress = Math.min(Math.max((scrollProgress - 0.15) / 0.85, 0), 1.0);
-        radarMainGroup.position.z = -500 + radarProgress * 500;
-        const radarScale = 0.35 + radarProgress * 0.65;
+        const radarProgress = Math.min(Math.max((scrollY - windowH * 0.15) / (windowH * 0.85), 0), 1.0);
+        const deepProgress = Math.max(0, (scrollY - windowH * 1.2) / (windowH * 1.0));
+        
+        // Moves from z: -600 to 0 (Chapter 2) to +200 (Chapter 3 deep flight)
+        radarMainGroup.position.z = -600 + radarProgress * 600 + deepProgress * 200;
+        const radarScale = 0.35 + radarProgress * 0.65 + deepProgress * 0.15;
         radarMainGroup.scale.set(radarScale, radarScale, radarScale);
       }
 

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Lock, X, ChevronDown } from "lucide-react";
+import { Lock, X, ChevronDown, Sparkles, ArrowRight, ShieldCheck, Zap, Database } from "lucide-react";
 import { ParticleConstellation } from "@/components/ParticleConstellation";
 import { LiquidMetalButton } from "@/components/ui/liquid-metal-button";
 
@@ -22,11 +22,24 @@ export default function HomePage() {
 
   // Calculate scroll progress for opacity fades
   const windowH = typeof window !== "undefined" ? window.innerHeight : 800;
-  const heroOpacity = Math.max(0, 1 - scrollY / (windowH * 0.45));
-  const introOpacity = Math.min(Math.max((scrollY - windowH * 0.35) / (windowH * 0.35), 0), 1);
+  
+  // Chapter 1: Hero Monogram (0 to 0.45 windowH)
+  const heroOpacity = Math.max(0, 1 - scrollY / (windowH * 0.4));
+  
+  // Chapter 2: "Introducing MerchantMind" (0.35 to 1.35 windowH)
+  const introProgress = (scrollY - windowH * 0.35) / (windowH * 0.4);
+  const introFadeOut = (scrollY - windowH * 1.1) / (windowH * 0.35);
+  const introOpacity =
+    scrollY < windowH * 1.1
+      ? Math.min(Math.max(introProgress, 0), 1)
+      : Math.max(0, 1 - introFadeOut);
+
+  // Chapter 3: Project Manifesto & Pillars (1.3 windowH and beyond)
+  const manifestoProgress = (scrollY - windowH * 1.3) / (windowH * 0.45);
+  const manifestoOpacity = Math.min(Math.max(manifestoProgress, 0), 1);
 
   return (
-    <div className="relative min-h-[220vh] bg-[#000000] text-[#e2e2e2] selection:bg-[#3395FF] selection:text-white overflow-x-hidden">
+    <div className="relative min-h-[320vh] bg-[#000000] text-[#e2e2e2] selection:bg-[#3395FF] selection:text-white overflow-x-hidden">
       {/* 3D WebGL Particle Universe: Expands Monogram & Reveals Multi-Node Network */}
       <ParticleConstellation />
 
@@ -129,6 +142,88 @@ export default function HomePage() {
           <h2 className="font-editorial text-5xl sm:text-7xl lg:text-[84px] leading-[1.05] tracking-tight text-white max-w-3xl drop-shadow-[0_4px_30px_rgba(0,0,0,1)]">
             Introducing <span className="italic text-[#3395FF]">MerchantMind</span>
           </h2>
+          <div className="mt-6 flex items-center gap-2 text-xs font-mono tracking-widest uppercase text-[#94A3B8]/80">
+            <span>Keep scrolling to explore</span>
+            <ChevronDown className="w-3.5 h-3.5 text-[#00C0F9] animate-pulse" />
+          </div>
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* CHAPTER 3: THE PROJECT MANIFESTO & CAPABILITIES (Scroll Stage 3)           */}
+      {/* ========================================================================= */}
+      <div
+        className="fixed inset-0 z-10 flex flex-col items-center justify-center px-6 text-center pointer-events-none transition-opacity duration-200"
+        style={{
+          opacity: manifestoOpacity,
+          display: manifestoOpacity <= 0 ? "none" : "flex",
+        }}
+      >
+        <div className="max-w-4xl mx-auto flex flex-col items-center pointer-events-auto">
+          {/* Monospace Supertitle */}
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#3395FF]/10 border border-[#3395FF]/30 text-[#00C0F9] font-mono text-[11px] tracking-[0.25em] uppercase mb-5">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Autonomous Agentic Commerce</span>
+          </div>
+
+          {/* Project Core Editorial Sentence */}
+          <h2 className="font-editorial text-4xl sm:text-6xl lg:text-[68px] leading-[1.1] tracking-tight text-white max-w-3xl drop-shadow-[0_8px_30px_rgba(0,0,0,1)]">
+            One AI model to understand{" "}
+            <span className="italic text-[#3395FF]">catalogs, intent,</span>{" "}
+            and{" "}
+            <span className="italic text-[#00C0F9]">instant checkout.</span>
+          </h2>
+
+          {/* Concise Project Description */}
+          <p className="mt-6 text-base sm:text-lg text-[#94A3B8] max-w-2xl font-light leading-relaxed drop-shadow-md">
+            MerchantMind dynamically analyzes inventory, enforces strict budget guardrails,
+            and turns natural customer conversations into instant Razorpay payment orders.
+          </p>
+
+          {/* 4 Feature Telemetry Badges */}
+          <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3 w-full max-w-3xl">
+            <div className="p-3.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-left hover:border-[#3395FF]/40 transition">
+              <div className="text-[10px] font-mono text-[#00C0F9] uppercase tracking-wider">01 // Intent</div>
+              <div className="text-xs font-semibold text-white mt-1">Natural Shopping</div>
+              <div className="text-[11px] text-[#94A3B8] mt-0.5 font-light">Dietary & taste reasoning</div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-left hover:border-[#3395FF]/40 transition">
+              <div className="text-[10px] font-mono text-[#3395FF] uppercase tracking-wider">02 // Guardrail</div>
+              <div className="text-xs font-semibold text-white mt-1">Budget Bounded</div>
+              <div className="text-[11px] text-[#94A3B8] mt-0.5 font-light">100% hard limit safety</div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-left hover:border-[#3395FF]/40 transition">
+              <div className="text-[10px] font-mono text-[#00C0F9] uppercase tracking-wider">03 // Growth</div>
+              <div className="text-xs font-semibold text-white mt-1">Context Upsell</div>
+              <div className="text-[11px] text-[#94A3B8] mt-0.5 font-light">+35% AOV uplift</div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-left hover:border-[#3395FF]/40 transition">
+              <div className="text-[10px] font-mono text-emerald-400 uppercase tracking-wider">04 // Settlement</div>
+              <div className="text-xs font-semibold text-white mt-1">1-Click Razorpay</div>
+              <div className="text-[11px] text-[#94A3B8] mt-0.5 font-light">Instant order links</div>
+            </div>
+          </div>
+
+          {/* Action CTAs */}
+          <div className="mt-8 flex flex-col sm:flex-row items-center gap-4">
+            <Link
+              href="/chat"
+              className="liquid-btn text-[#000000] font-semibold text-sm px-6 py-3 rounded-xl flex items-center gap-2 cursor-pointer shadow-lg shadow-[#3395FF]/20 hover:scale-[1.02] transition"
+            >
+              <span>Try Conversational Checkout</span>
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+
+            <button
+              onClick={() => setShowVaultModal(true)}
+              className="px-5 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-xs sm:text-sm text-white font-mono uppercase tracking-wider transition"
+            >
+              Connect Vault
+            </button>
+          </div>
         </div>
       </div>
 
@@ -141,7 +236,7 @@ export default function HomePage() {
             {/* Close Button */}
             <button
               onClick={() => setShowVaultModal(false)}
-              className="absolute top-4 right-4 text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition"
+              className="absolute top-4 right-4 text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -176,7 +271,7 @@ export default function HomePage() {
               />
               <button
                 onClick={() => setShowVaultModal(false)}
-                className="text-xs text-zinc-400 hover:text-white transition py-2"
+                className="text-xs text-zinc-400 hover:text-white transition py-2 cursor-pointer"
               >
                 Close and return to network overview
               </button>

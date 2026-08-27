@@ -1,9 +1,8 @@
-"""Campaign model — re-engagement campaigns for dormant customers."""
+"""Campaign model for proactive re-engagement and targeted promotional offers."""
 
 import uuid
 from datetime import datetime
-
-from sqlalchemy import String, Float, DateTime, ForeignKey, Boolean, func
+from sqlalchemy import String, Float, Boolean, DateTime, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -23,29 +22,25 @@ class Campaign(Base):
         UUID(as_uuid=True), ForeignKey("customers.id", ondelete="CASCADE"), nullable=False
     )
 
-    # Campaign details
-    campaign_type: Mapped[str] = mapped_column(String(50), default="re-engagement")
-    message: Mapped[str | None] = mapped_column(String(1000), nullable=True)
-    offer: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    discount_percent: Mapped[float | None] = mapped_column(Float, nullable=True)
+    campaign_type: Mapped[str] = mapped_column(String(50), default="re_engagement")  # re_engagement, birthday, seasonal
+    offer: Mapped[str] = mapped_column(String(500), nullable=False)
+    message_text: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    rzp_link: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="sent")  # draft, sent, delivered, failed
 
-    # Razorpay Payment Link
-    rzp_payment_link: Mapped[str | None] = mapped_column(String(500), nullable=True)
-
-    # Status
-    status: Mapped[str] = mapped_column(String(20), default="pending")  # pending, sent, converted, expired
     converted: Mapped[bool] = mapped_column(Boolean, default=False)
+    conversion_amount: Mapped[float | None] = mapped_column(Float, nullable=True)
 
-    # Timestamps
-    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    converted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
+    sent_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
+    )
+    converted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
 
     # Relationships
-    merchant = relationship("Merchant", back_populates="campaigns")
+    merchant = relationship("Merchant")
     customer = relationship("Customer")
 
     def __repr__(self) -> str:
-        return f"<Campaign(id={self.id}, type='{self.campaign_type}', status='{self.status}')>"
+        return f"<Campaign(id={self.id}, type='{self.campaign_type}', converted={self.converted})>"

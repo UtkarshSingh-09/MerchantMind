@@ -34,7 +34,7 @@
 
 ## Phase 2: Conversational Checkout
 **Timeline**: Aug 26-28 (Day 3-5)
-**Status**: ⏳ Waiting
+**Status**: 🟢 Done
 
 ### Scope
 - Groq-powered checkout agent (llama-3.3-70b)
@@ -61,7 +61,7 @@
 
 ## Phase 3: Razorpay Payment Flow
 **Timeline**: Aug 29-30 (Day 6-7)
-**Status**: ⏳ Waiting
+**Status**: 🟢 Done
 
 ### Scope
 - Razorpay test-mode integration (Python SDK)
@@ -85,7 +85,7 @@
 
 ## Phase 4: Upsell + WhatsApp
 **Timeline**: Aug 31 - Sep 1 (Day 8-9)
-**Status**: ⏳ Waiting
+**Status**: 🟢 Done
 
 ### Scope
 - **Upsell/Cross-sell Agent**: Context-aware suggestions based on cart
@@ -114,7 +114,7 @@
 
 ## Phase 5: Guardrails + Audit
 **Timeline**: Sep 2-3 (Day 10-11)
-**Status**: ⏳ Waiting
+**Status**: 🟢 Done
 
 ### Scope
 - Audit trail system: every agent decision logged with reasoning
@@ -140,7 +140,7 @@
 
 ## Phase 6: Polish + Demo
 **Timeline**: Sep 4-5 (Day 12-13)
-**Status**: ⏳ Waiting
+**Status**: 🟢 Done
 
 ### Scope
 - UI/UX polish (chat interface, product cards, cart)

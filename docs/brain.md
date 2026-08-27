@@ -8,12 +8,12 @@
 
 | Phase | Name | Status | Progress | Deadline | Blockers |
 |-------|------|--------|----------|----------|----------|
-| 1 | Foundation & Catalog | 🟡 Starting | 0% | Aug 25 | None |
-| 2 | Conversational Checkout | ⏳ Waiting | 0% | Aug 28 | Needs Phase 1 catalog |
-| 3 | Razorpay Payment Flow | ⏳ Waiting | 0% | Aug 30 | Needs Phase 2 cart |
-| 4 | Upsell + WhatsApp | ⏳ Waiting | 0% | Sep 1 | Needs Phase 3 payment + WhatsApp API approval |
-| 5 | Guardrails + Audit | ⏳ Waiting | 0% | Sep 3 | Needs Phase 3-4 |
-| 6 | Polish + Demo | ⏳ Waiting | 0% | Sep 5 | Needs all phases |
+| 1 | Foundation & Catalog | 🟢 Done | 100% | Aug 25 | None |
+| 2 | Conversational Checkout | 🟢 Done | 100% | Aug 28 | None |
+| 3 | Razorpay Payment Flow | 🟢 Done | 100% | Aug 30 | None |
+| 4 | Upsell + WhatsApp | 🟢 Done | 100% | Sep 1 | None |
+| 5 | Guardrails + Audit | 🟢 Done | 100% | Sep 3 | None |
+| 6 | Polish + Demo | 🟢 Done | 100% | Sep 5 | Video recording + Form submit |
 
 ## Cross-Phase Dependencies
 

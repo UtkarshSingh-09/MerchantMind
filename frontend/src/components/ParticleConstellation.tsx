@@ -15,43 +15,55 @@ export function ParticleConstellation() {
 
     // Scene & Camera
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x000000, 0.0006);
+    scene.fog = new THREE.FogExp2(0x000000, 0.0004);
 
-    const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 4000);
-    camera.position.set(0, 0, 16);
+    const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 3000);
+    camera.position.z = 800;
 
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     container.appendChild(renderer.domElement);
 
+    // --- State & Mouse Interaction ---
+    const mouse = new THREE.Vector2();
+    const targetRotation = new THREE.Vector2();
+
+    const handleMouseMove = (e: MouseEvent) => {
+      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+
+    let scrollY = 0;
+    const handleScroll = () => {
+      scrollY = window.scrollY || window.pageYOffset;
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    // =========================================================================
+    // 1. HERO PARTICLE MONOGRAM SPHERE (Top Scene)
+    // =========================================================================
+    const heroGroup = new THREE.Group();
+    scene.add(heroGroup);
+
+    const heroParticleCount = 15000;
+    const heroPositions = new Float32Array(heroParticleCount * 3);
+    const heroColors = new Float32Array(heroParticleCount * 3);
+    const heroSizes = new Float32Array(heroParticleCount);
+
     const colorPrimary = new THREE.Color("#3395FF"); // Razorpay Electric Blue
     const colorSecondary = new THREE.Color("#E2E8F0"); // Luminescent Silver
     const colorAccent = new THREE.Color("#00C0F9"); // Ice Cyan
 
-    // 1. Hero Particle Monogram Sphere (15,000 points)
-    const particleCount = 15000;
-    const positions = new Float32Array(particleCount * 3);
-    const originalPositions = new Float32Array(particleCount * 3);
-    const colors = new Float32Array(particleCount * 3);
-    const sizes = new Float32Array(particleCount);
-
-    for (let i = 0; i < particleCount; i++) {
+    for (let i = 0; i < heroParticleCount; i++) {
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(Math.random() * 2 - 1);
-      const radius = 4.8 + Math.random() * 2.0;
+      const radius = 240 + Math.random() * 90;
 
-      const px = radius * Math.sin(phi) * Math.cos(theta);
-      const py = radius * Math.sin(phi) * Math.sin(theta);
-      const pz = radius * Math.cos(phi);
-
-      positions[i * 3] = px;
-      positions[i * 3 + 1] = py;
-      positions[i * 3 + 2] = pz;
-
-      originalPositions[i * 3] = px;
-      originalPositions[i * 3 + 1] = py;
-      originalPositions[i * 3 + 2] = pz;
+      heroPositions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+      heroPositions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+      heroPositions[i * 3 + 2] = radius * Math.cos(phi);
 
       const mixedColor =
         i % 3 === 0
@@ -59,20 +71,20 @@ export function ParticleConstellation() {
           : i % 3 === 1
           ? colorSecondary
           : colorAccent;
-      colors[i * 3] = mixedColor.r;
-      colors[i * 3 + 1] = mixedColor.g;
-      colors[i * 3 + 2] = mixedColor.b;
+      heroColors[i * 3] = mixedColor.r;
+      heroColors[i * 3 + 1] = mixedColor.g;
+      heroColors[i * 3 + 2] = mixedColor.b;
 
-      sizes[i] = Math.random() * 1.8 + 0.6;
+      heroSizes[i] = Math.random() * 2.5 + 1.2;
     }
 
     const heroGeometry = new THREE.BufferGeometry();
-    heroGeometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    heroGeometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-    heroGeometry.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
+    heroGeometry.setAttribute("position", new THREE.BufferAttribute(heroPositions, 3));
+    heroGeometry.setAttribute("color", new THREE.BufferAttribute(heroColors, 3));
+    heroGeometry.setAttribute("size", new THREE.BufferAttribute(heroSizes, 1));
 
     const heroMaterial = new THREE.PointsMaterial({
-      size: 0.06,
+      size: 2.4,
       vertexColors: true,
       transparent: true,
       opacity: 0.85,
@@ -81,230 +93,227 @@ export function ParticleConstellation() {
     });
 
     const heroParticleSystem = new THREE.Points(heroGeometry, heroMaterial);
-    scene.add(heroParticleSystem);
+    heroGroup.add(heroParticleSystem);
 
-    // 2. Dense Starfield (8,000 background stars)
-    const starCount = 8000;
-    const starPos = new Float32Array(starCount * 3);
-    for (let i = 0; i < starCount * 3; i++) {
-      starPos[i] = (Math.random() - 0.5) * 3500;
+    // =========================================================================
+    // 2. RADAR TUNNEL & ARCHITECTURAL MONOLITHS (Stitch Scene 2)
+    // =========================================================================
+    const radarMainGroup = new THREE.Group();
+    scene.add(radarMainGroup);
+
+    const monolithGroup = new THREE.Group();
+    const ringGroup = new THREE.Group();
+    const clusterGroup = new THREE.Group();
+    radarMainGroup.add(monolithGroup, ringGroup, clusterGroup);
+
+    // --- 2A. Perimeter Architectural Monoliths ---
+    function createMonolith(
+      mWidth: number,
+      mHeight: number,
+      mDepth: number,
+      color: number,
+      x: number,
+      y: number,
+      z: number
+    ) {
+      const geo = new THREE.BoxGeometry(mWidth, mHeight, mDepth);
+      const wireframe = new THREE.EdgesGeometry(geo);
+      const mat = new THREE.LineBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 0.6,
+      });
+      const mesh = new THREE.LineSegments(wireframe, mat);
+      mesh.position.set(x, y, z);
+
+      // Particle points inside monolith
+      const ptsCount = 1000;
+      const ptsGeo = new THREE.BufferGeometry();
+      const ptsPos = new Float32Array(ptsCount * 3);
+      for (let i = 0; i < ptsCount; i++) {
+        ptsPos[i * 3] = (Math.random() - 0.5) * mWidth;
+        ptsPos[i * 3 + 1] = (Math.random() - 0.5) * mHeight;
+        ptsPos[i * 3 + 2] = (Math.random() - 0.5) * mDepth;
+      }
+      ptsGeo.setAttribute("position", new THREE.BufferAttribute(ptsPos, 3));
+      const ptsMat = new THREE.PointsMaterial({
+        color,
+        size: 1.6,
+        transparent: true,
+        opacity: 0.45,
+      });
+      const pts = new THREE.Points(ptsGeo, ptsMat);
+      mesh.add(pts);
+
+      return mesh;
     }
+
+    // Left: Acquiring Bank
+    monolithGroup.add(
+      createMonolith(120, 600, 120, 0xffffff, -650, 0, 0)
+    );
+    // Right: Payment Processor
+    monolithGroup.add(
+      createMonolith(120, 700, 120, 0x3395ff, 650, 50, 0)
+    );
+    // Top: Issuing Bank
+    monolithGroup.add(
+      createMonolith(600, 80, 100, 0x00c0f9, 0, 450, -100)
+    );
+    // Bottom: Payment Gateway
+    monolithGroup.add(
+      createMonolith(500, 60, 100, 0x3395ff, 0, -450, -100)
+    );
+
+    // --- 2B. Concentric Tunnel Radar Orbit Rings ---
+    for (let i = 0; i < 12; i++) {
+      const radius = 200 + i * 80;
+      const segments = 128;
+      const ringGeometry = new THREE.BufferGeometry();
+      const ringPositions = new Float32Array(segments * 3);
+      for (let j = 0; j < segments; j++) {
+        const theta = (j / segments) * Math.PI * 2;
+        ringPositions[j * 3] = Math.cos(theta) * radius;
+        ringPositions[j * 3 + 1] = Math.sin(theta) * radius;
+        ringPositions[j * 3 + 2] = 0;
+      }
+      ringGeometry.setAttribute(
+        "position",
+        new THREE.BufferAttribute(ringPositions, 3)
+      );
+      const ringMaterial = new THREE.LineBasicMaterial({
+        color: i % 2 === 0 ? 0x00c0f9 : 0x3395ff,
+        transparent: true,
+        opacity: 0.2 + (1 - i / 12) * 0.4,
+      });
+      const ring = new THREE.LineLoop(ringGeometry, ringMaterial);
+      ring.rotation.x = Math.PI / 2.2;
+      ring.userData = { speed: 0.001 * (i + 1) };
+      ringGroup.add(ring);
+    }
+
+    // --- 2C. Four Inner Geometric Particle Clusters ---
+    function createCluster(
+      geo: THREE.BufferGeometry,
+      color: number,
+      x: number,
+      y: number,
+      z: number
+    ) {
+      const ptsCount = 2000;
+      const ptsGeo = new THREE.BufferGeometry();
+      const ptsPos = new Float32Array(ptsCount * 3);
+      const posAttr = geo.attributes.position;
+      for (let i = 0; i < ptsCount; i++) {
+        const idx = Math.floor(Math.random() * posAttr.count);
+        ptsPos[i * 3] = posAttr.getX(idx);
+        ptsPos[i * 3 + 1] = posAttr.getY(idx);
+        ptsPos[i * 3 + 2] = posAttr.getZ(idx);
+      }
+      ptsGeo.setAttribute("position", new THREE.BufferAttribute(ptsPos, 3));
+      const ptsMat = new THREE.PointsMaterial({
+        color,
+        size: 2.2,
+        transparent: true,
+        opacity: 0.85,
+        blending: THREE.AdditiveBlending,
+      });
+      const cluster = new THREE.Points(ptsGeo, ptsMat);
+      cluster.position.set(x, y, z);
+      return cluster;
+    }
+
+    const c1 = createCluster(new THREE.IcosahedronGeometry(40, 2), 0x00c0f9, 0, 150, 0); // Top (Cyan)
+    const c2 = createCluster(new THREE.TorusGeometry(35, 12, 16, 100), 0xe2e8f0, 180, 80, 0); // Top-Right (Silver)
+    const c3 = createCluster(new THREE.SphereGeometry(40, 32, 32), 0x3395ff, -180, -80, 0); // Bottom-Left (Blue)
+    const c4 = createCluster(new THREE.SphereGeometry(45, 16, 16), 0xffffff, 180, -120, 0); // Bottom-Right (White)
+    clusterGroup.add(c1, c2, c3, c4);
+
+    // =========================================================================
+    // 3. AMBIENT STARFIELD (5,000 background stars)
+    // =========================================================================
+    const starCount = 5000;
     const starGeo = new THREE.BufferGeometry();
+    const starPos = new Float32Array(starCount * 3);
+    for (let i = 0; i < starCount; i++) {
+      starPos[i * 3] = (Math.random() - 0.5) * 3000;
+      starPos[i * 3 + 1] = (Math.random() - 0.5) * 3000;
+      starPos[i * 3 + 2] = (Math.random() - 0.5) * 2000 - 1000;
+    }
     starGeo.setAttribute("position", new THREE.BufferAttribute(starPos, 3));
     const starMat = new THREE.PointsMaterial({
       color: 0xffffff,
-      size: 0.8,
+      size: 1.2,
       transparent: true,
-      opacity: 0.45,
-      sizeAttenuation: true,
+      opacity: 0.5,
     });
-    const starField = new THREE.Points(starGeo, starMat);
-    scene.add(starField);
+    const stars = new THREE.Points(starGeo, starMat);
+    scene.add(stars);
 
-    // 3. Central Multi-Node Network (Hub, Orbital Rings, Wireframe Nodes)
-    const hubGroup = new THREE.Group();
-    hubGroup.position.set(0, 0, -60); // Starts deep behind
-    hubGroup.scale.set(0.1, 0.1, 0.1);
-    scene.add(hubGroup);
-
-    // Central Icosahedron Hub
-    const hubGeo = new THREE.IcosahedronGeometry(4.5, 2);
-    const hubMat = new THREE.MeshPhongMaterial({
-      color: 0x3395ff,
-      emissive: 0x00c0f9,
-      emissiveIntensity: 0.7,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.85,
-    });
-    const hub = new THREE.Mesh(hubGeo, hubMat);
-    hubGroup.add(hub);
-
-    // Inner Glowing Core
-    const innerHubGeo = new THREE.SphereGeometry(2.0, 24, 24);
-    const innerHubMat = new THREE.MeshBasicMaterial({ color: 0x3395ff });
-    const innerHub = new THREE.Mesh(innerHubGeo, innerHubMat);
-    hubGroup.add(innerHub);
-
-    // Concentric Orbital Rings
-    function createRing(radius: number, rx: number, rz: number, color: number, opacity: number) {
-      const curve = new THREE.EllipseCurve(0, 0, radius, radius * 0.72, 0, 2 * Math.PI, false, 0);
-      const points = curve.getPoints(180);
-      const geometry = new THREE.BufferGeometry().setFromPoints(points);
-      const material = new THREE.LineBasicMaterial({
-        color,
-        transparent: true,
-        opacity,
-      });
-      const ring = new THREE.Line(geometry, material);
-      ring.rotation.x = rx;
-      ring.rotation.z = rz;
-      return ring;
-    }
-
-    const rings = [
-      createRing(14, Math.PI / 2.2, 0.1, 0x3395ff, 0.45),
-      createRing(22, Math.PI / 2.15, -0.15, 0x4b5563, 0.35),
-      createRing(30, Math.PI / 2.1, -0.2, 0x38bdf8, 0.3),
-      createRing(38, Math.PI / 2.25, 0.3, 0x3395ff, 0.2),
-      createRing(46, Math.PI / 2.3, 0.45, 0x38bdf8, 0.15),
-    ];
-    rings.forEach((r) => hubGroup.add(r));
-
-    // Dynamic Wireframe Nodes
-    const nodes = new THREE.Group();
-    hubGroup.add(nodes);
-    const nodeCount = 20;
-    const connectors: THREE.Line[] = [];
-
-    for (let i = 0; i < nodeCount; i++) {
-      const angle = (i / nodeCount) * Math.PI * 2;
-      const radius = 16 + (i % 3) * 8;
-      const x = Math.cos(angle) * radius;
-      const z = Math.sin(angle) * radius;
-      const y = ((i % 4) - 1.5) * 3;
-
-      const isPill = i % 3 === 0;
-      const geo = isPill
-        ? new THREE.SphereGeometry(0.7, 16, 16)
-        : new THREE.BoxGeometry(1.2, 1.6, 1.2);
-
-      const mat = new THREE.MeshPhongMaterial({
-        color: i % 4 === 0 ? 0x3395ff : 0xe2e8f0,
-        emissive: i % 4 === 0 ? 0x00c0f9 : 0x3395ff,
-        emissiveIntensity: 0.5,
-        wireframe: !isPill,
-        transparent: true,
-        opacity: 0.9,
-      });
-
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.set(x, y, z);
-      mesh.userData = { originalY: y, phase: Math.random() * Math.PI * 2 };
-      nodes.add(mesh);
-
-      const lineGeo = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(0, 0, 0),
-        new THREE.Vector3(x, y, z),
-      ]);
-      const lineMat = new THREE.LineBasicMaterial({
-        color: 0x3395ff,
-        transparent: true,
-        opacity: 0.22,
-      });
-      const line = new THREE.Line(lineGeo, lineMat);
-      hubGroup.add(line);
-      connectors.push(line);
-    }
-
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
-    scene.add(ambientLight);
-    const pointLight = new THREE.PointLight(0x3395ff, 3, 300);
-    pointLight.position.set(0, 5, 10);
-    scene.add(pointLight);
-
-    // Mouse & Scroll Tracking
-    let mouseX = 0;
-    let mouseY = 0;
-    let targetMouseX = 0;
-    let targetMouseY = 0;
-    let scrollY = 0;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      targetMouseX = (e.clientX / window.innerWidth) * 2 - 1;
-      targetMouseY = -(e.clientY / window.innerHeight) * 2 + 1;
-    };
-
-    const handleScroll = () => {
-      scrollY = window.scrollY || window.pageYOffset;
-    };
-
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("scroll", handleScroll, { passive: true });
-
+    // =========================================================================
+    // 4. ANIMATION LOOP & SCROLL EXPANSION
+    // =========================================================================
     let animationFrameId: number;
 
     const animate = (t: number) => {
       animationFrameId = requestAnimationFrame(animate);
-      const time = t * 0.0006;
+      const time = t * 0.001;
 
-      // Mouse easing
-      mouseX += (targetMouseX - mouseX) * 0.05;
-      mouseY += (targetMouseY - mouseY) * 0.05;
+      // Mouse Parallax easing
+      targetRotation.x += (mouse.y * 0.06 - targetRotation.x) * 0.05;
+      targetRotation.y += (mouse.x * 0.06 - targetRotation.y) * 0.05;
 
-      // Scroll Progress Normalized (0 at top, 1 at full scroll depth)
+      monolithGroup.rotation.x = targetRotation.x;
+      monolithGroup.rotation.y = targetRotation.y;
+
+      // Scroll interpolation (0 at top, 1 at full scroll depth)
       const windowH = typeof window !== "undefined" ? window.innerHeight : 800;
-      const scrollProgress = Math.min(scrollY / (windowH * 0.9), 1.0);
+      const scrollProgress = Math.min(scrollY / (windowH * 0.85), 1.0);
 
-      // =========================================================================
-      // 1. HERO SPHERE: Expands "big, big, big, big, big" & opens up
-      // =========================================================================
-      const expansionFactor = 1.0 + Math.pow(scrollProgress * 2.8, 2.4);
-      heroParticleSystem.scale.set(expansionFactor, expansionFactor, expansionFactor);
+      // Hero Sphere Expansion: expands "big, big, big, big, big" & disperses
+      const heroScale = 1.0 + Math.pow(scrollProgress * 2.8, 2.5);
+      heroGroup.scale.set(heroScale, heroScale, heroScale);
+      heroGroup.rotation.y = time * 0.08;
+      heroGroup.rotation.x = time * 0.04;
 
-      // Hero rotation & breathing pulse
-      heroParticleSystem.rotation.y = time * 0.12;
-      heroParticleSystem.rotation.x = time * 0.06;
-
-      // Hero Opacity: Stays solid initially, fades as it opens past the screen (progress > 0.45)
-      if (scrollProgress < 0.45) {
+      if (scrollProgress < 0.35) {
         heroMaterial.opacity = 0.85;
       } else {
-        const fadeOut = Math.max(0, 0.85 * (1.0 - (scrollProgress - 0.45) / 0.45));
-        heroMaterial.opacity = fadeOut;
+        heroMaterial.opacity = Math.max(
+          0,
+          0.85 * (1.0 - (scrollProgress - 0.35) / 0.45)
+        );
       }
 
-      // =========================================================================
-      // 2. MULTI-NODE NETWORK: Arrives into the center when hero sphere opens
-      // =========================================================================
-      if (scrollProgress < 0.2) {
-        hubGroup.visible = false;
+      // Radar Tunnel & Monoliths reveal as hero sphere opens
+      if (scrollProgress < 0.15) {
+        radarMainGroup.visible = false;
       } else {
-        hubGroup.visible = true;
-        // Smooth ease-in for the multi-node network (0 at 0.2, 1 at 1.0)
-        const netProgress = Math.min(Math.max((scrollProgress - 0.2) / 0.8, 0), 1.0);
+        radarMainGroup.visible = true;
+        const radarProgress = Math.min(
+          Math.max((scrollProgress - 0.15) / 0.85, 0),
+          1.0
+        );
 
-        // Position: Moves from depth z: -60 to z: 0, and lower down to y: -5.5
-        const hubZ = -60 + netProgress * 60;
-        const hubY = -5.5 * netProgress;
-        hubGroup.position.set(0, hubY, hubZ);
-
-        // Isometric tilt so the orbital rings spread horizontally like a planetary disc
-        hubGroup.rotation.x = 0.45;
-
-        // Scale: Scales up from 0.1 to 1.05
-        const hubScale = 0.1 + netProgress * 0.95;
-        hubGroup.scale.set(hubScale, hubScale, hubScale);
+        // Zoom from depth z: -400 to z: 0
+        radarMainGroup.position.z = -400 + radarProgress * 400;
+        const radarScale = 0.3 + radarProgress * 0.7;
+        radarMainGroup.scale.set(radarScale, radarScale, radarScale);
       }
 
-      // Hub & Rings Rotation
-      hub.rotation.y += 0.005;
-      hub.rotation.z += 0.002;
-      rings.forEach((r, i) => {
-        r.rotation.z += 0.0008 * (i + 1);
+      // Ring rotation at variable speeds
+      ringGroup.children.forEach((ring) => {
+        ring.rotation.z += ring.userData.speed;
       });
 
-      // Animated floating nodes
-      nodes.children.forEach((n, i) => {
-        const mesh = n as THREE.Mesh;
-        mesh.position.y =
-          mesh.userData.originalY + Math.sin(time * 2 + mesh.userData.phase) * 1.0;
-        mesh.rotation.y += 0.01;
-
-        if (connectors[i]) {
-          const linePos = connectors[i].geometry.attributes.position.array as Float32Array;
-          linePos[3] = mesh.position.x;
-          linePos[4] = mesh.position.y;
-          linePos[5] = mesh.position.z;
-          connectors[i].geometry.attributes.position.needsUpdate = true;
-        }
+      // Cluster rotation on their own axes
+      clusterGroup.children.forEach((c) => {
+        c.rotation.y += 0.012;
+        c.rotation.x += 0.006;
       });
 
-      // Camera parallax looking slightly down towards the horizon
-      camera.position.x = mouseX * 2.0;
-      camera.position.y = mouseY * 1.5 + 2.0;
-      camera.lookAt(0, -1.5, 0);
+      // Stars subtle rotation
+      stars.rotation.y = time * 0.01;
 
       renderer.render(scene, camera);
     };

@@ -116,7 +116,7 @@ export default function HomePage() {
       </div>
 
       {/* ========================================================================= */}
-      {/* CHAPTER 2: MULTI-NODE NETWORK VIEW ("Introducing MerchantMind")           */}
+      {/* CHAPTER 2: RADAR TUNNEL VIEW ("Introducing MerchantMind")                 */}
       {/* ========================================================================= */}
       <div
         className="fixed inset-0 z-10 flex flex-col items-center justify-center px-6 text-center pointer-events-none transition-opacity duration-200"
@@ -125,16 +125,10 @@ export default function HomePage() {
           display: introOpacity <= 0 ? "none" : "flex",
         }}
       >
-        <div className="max-w-4xl mx-auto flex flex-col items-center pb-20">
-          {/* Subtle Radial Obsidian Backdrop Shield */}
-          <div className="relative px-12 py-8 rounded-full bg-black/60 backdrop-blur-md border border-white/5 shadow-2xl shadow-black">
-            <h2 className="font-editorial text-5xl sm:text-7xl lg:text-[86px] leading-[1.05] tracking-tight text-white max-w-3xl drop-shadow-[0_8px_30px_rgba(0,0,0,1)]">
-              Introducing{" "}
-              <span className="italic text-[#3395FF] drop-shadow-[0_0_35px_rgba(51,149,255,0.6)]">
-                MerchantMind
-              </span>
-            </h2>
-          </div>
+        <div className="max-w-4xl mx-auto flex flex-col items-center">
+          <h2 className="font-editorial text-5xl sm:text-7xl lg:text-[84px] leading-[1.05] tracking-tight text-white max-w-3xl drop-shadow-[0_4px_30px_rgba(0,0,0,1)]">
+            Introducing <span className="italic text-[#3395FF]">MerchantMind</span>
+          </h2>
         </div>
       </div>
 

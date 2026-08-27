@@ -11,6 +11,7 @@ alembic==1.14.1
 # Validation & Settings
 pydantic==2.10.4
 pydantic-settings==2.7.1
+email-validator==2.1.1
 
 # Redis
 redis==5.2.1
@@ -31,7 +32,6 @@ passlib[bcrypt]==1.7.4
 # Testing
 pytest==8.3.4
 pytest-asyncio==0.25.0
-httpx==0.28.1
 
 # Linting
 ruff==0.8.6

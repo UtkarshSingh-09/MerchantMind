@@ -8,7 +8,7 @@ from pydantic import BaseModel, EmailStr
 
 class MerchantCreate(BaseModel):
     name: str
-    email: str
+    email: EmailStr
     phone: str | None = None
     description: str | None = None
     rzp_key_id: str | None = None

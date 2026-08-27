@@ -1,11 +1,10 @@
-"""AuditLog model — tracks every agent decision and API call."""
+"""Audit Log model — tracks every agent decision, API call, reasoning, and guardrail check."""
 
 import uuid
 from datetime import datetime
-
-from sqlalchemy import String, DateTime, ForeignKey, func
+from sqlalchemy import String, Text, DateTime, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID, JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
@@ -16,34 +15,30 @@ class AuditLog(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
+    merchant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("merchants.id", ondelete="CASCADE"), nullable=False
+    )
     order_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("orders.id", ondelete="SET NULL"), nullable=True
     )
     conversation_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("conversations.id", ondelete="SET NULL"), nullable=True
     )
-    merchant_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("merchants.id", ondelete="SET NULL"), nullable=True
-    )
 
-    # Action details
-    action: Mapped[str] = mapped_column(String(100), nullable=False)
-    reasoning: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    event_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    action: Mapped[str] = mapped_column(String(255), nullable=False)
+    reasoning: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    input_data: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    output_data: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
-    # Input/Output
-    input_data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    output_data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-
-    # Source: "agent", "razorpay", "whatsapp", "system"
-    source: Mapped[str] = mapped_column(String(50), default="system")
-
-    # Status: "success", "failure", "retry"
-    status: Mapped[str] = mapped_column(String(20), default="success")
-
-    # Timestamp
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
 
+    # Relationships
+    merchant = relationship("Merchant")
+    order = relationship("Order")
+    conversation = relationship("Conversation")
+
     def __repr__(self) -> str:
-        return f"<AuditLog(action='{self.action}', source='{self.source}', status='{self.status}')>"
+        return f"<AuditLog(id={self.id}, type='{self.event_type}', action='{self.action}')>"

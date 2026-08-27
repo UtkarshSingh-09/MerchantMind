@@ -265,12 +265,16 @@ export function ParticleConstellation() {
         // Smooth ease-in for the multi-node network (0 at 0.2, 1 at 1.0)
         const netProgress = Math.min(Math.max((scrollProgress - 0.2) / 0.8, 0), 1.0);
 
-        // Position: Moves from depth z: -60 to z: 0
+        // Position: Moves from depth z: -60 to z: 0, and lower down to y: -5.5
         const hubZ = -60 + netProgress * 60;
-        hubGroup.position.set(0, 0, hubZ);
+        const hubY = -5.5 * netProgress;
+        hubGroup.position.set(0, hubY, hubZ);
 
-        // Scale: Scales up from 0.1 to 1.0
-        const hubScale = 0.1 + netProgress * 0.9;
+        // Isometric tilt so the orbital rings spread horizontally like a planetary disc
+        hubGroup.rotation.x = 0.45;
+
+        // Scale: Scales up from 0.1 to 1.05
+        const hubScale = 0.1 + netProgress * 0.95;
         hubGroup.scale.set(hubScale, hubScale, hubScale);
       }
 
@@ -297,10 +301,10 @@ export function ParticleConstellation() {
         }
       });
 
-      // Camera parallax
+      // Camera parallax looking slightly down towards the horizon
       camera.position.x = mouseX * 2.0;
-      camera.position.y = mouseY * 1.5;
-      camera.lookAt(0, 0, 0);
+      camera.position.y = mouseY * 1.5 + 2.0;
+      camera.lookAt(0, -1.5, 0);
 
       renderer.render(scene, camera);
     };

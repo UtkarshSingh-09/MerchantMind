@@ -95,7 +95,7 @@ export function ParticleConstellation() {
 
     // 3. Central Multi-Node Hub & Rings
     const hubGroup = new THREE.Group();
-    hubGroup.position.set(0, -25, -20);
+    hubGroup.position.set(0, -55, -30);
     scene.add(hubGroup);
 
     const hubGeo = new THREE.IcosahedronGeometry(6, 2);
@@ -251,9 +251,9 @@ export function ParticleConstellation() {
 
       // Camera transitions with scroll (dives from monogram into multi-node plane)
       camera.position.x = mouseX * 2.5;
-      camera.position.y = mouseY * 2 - scrollProgress * 15;
-      camera.position.z = 16 - scrollProgress * 6;
-      camera.lookAt(0, -scrollProgress * 10, 0);
+      camera.position.y = mouseY * 2 - scrollProgress * 36;
+      camera.position.z = 16 - scrollProgress * 10;
+      camera.lookAt(0, -scrollProgress * 36, -scrollProgress * 15);
 
       renderer.render(scene, camera);
     };

@@ -48,13 +48,16 @@ export default function HomePage() {
             >
               MerchantMind
             </Link>
-            <span className="rounded-full border border-[#3395FF]/40 bg-[#3395FF]/10 px-2.5 py-0.5 text-[10px] font-mono uppercase tracking-widest text-[#00C0F9]">
-              Track 01 • AI Growth
-            </span>
           </div>
 
           {/* Minimalist Navigation Links */}
           <nav className="hidden md:flex items-center gap-8 text-sm">
+            <a
+              href="#metrics"
+              className="text-[#94A3B8] hover:text-white transition-colors"
+            >
+              Analytics
+            </a>
             <a
               href="#network"
               className="text-[#94A3B8] hover:text-white transition-colors"
@@ -67,24 +70,10 @@ export default function HomePage() {
             >
               Architecture
             </a>
-            <a
-              href="#metrics"
-              className="text-[#94A3B8] hover:text-white transition-colors"
-            >
-              Metrics
-            </a>
           </nav>
 
-          {/* Action CTAs */}
+          {/* Action CTA */}
           <div className="flex items-center gap-4">
-            <Link
-              href="/chat"
-              className="hidden sm:flex items-center gap-1.5 text-xs font-medium text-zinc-400 hover:text-white transition"
-            >
-              <span>Demo Store</span>
-              <ArrowRight className="h-3 w-3" />
-            </Link>
-
             <button
               onClick={() => setShowVaultModal(true)}
               className="liquid-btn text-[#000000] font-semibold text-xs md:text-sm px-4 py-2 rounded-lg cursor-pointer flex items-center gap-1.5"
@@ -102,14 +91,6 @@ export default function HomePage() {
         {/* CHAPTER 1: PARTICLE MONOGRAM HERO                                         */}
         {/* ========================================================================= */}
         <section className="relative flex min-h-[92vh] w-full max-w-5xl flex-col items-center justify-center px-6 text-center pt-8">
-          {/* Super-title */}
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-4 py-1.5 backdrop-blur-md">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#00C0F9] animate-pulse" />
-            <span className="font-mono text-[11px] tracking-[0.3em] uppercase text-[#00C0F9]">
-              R A Z O R P A Y   M E R C H A N T M I N D
-            </span>
-          </div>
-
           {/* Editorial Headline */}
           <h1 className="font-editorial text-5xl sm:text-7xl lg:text-[84px] leading-[1.05] tracking-tight text-white max-w-4xl drop-shadow-2xl">
             Step into the world of{" "}
@@ -122,25 +103,6 @@ export default function HomePage() {
             But they existed in isolation. What if one autonomous model could
             understand catalogs, intent, upselling, and payments as a whole?
           </p>
-
-          {/* CTA Group */}
-          <div className="mt-10 flex flex-col sm:flex-row items-center gap-4">
-            <LiquidMetalButton
-              label="Try Conversational Checkout →"
-              onClick={handleLaunchStore}
-            />
-            <button
-              onClick={() => {
-                document
-                  .getElementById("network")
-                  ?.scrollIntoView({ behavior: "smooth" });
-              }}
-              className="px-6 py-3 rounded-lg border border-white/20 bg-white/5 text-sm font-medium text-white backdrop-blur-md hover:bg-white/10 hover:border-white/40 transition cursor-pointer flex items-center gap-2"
-            >
-              <span>Explore Network</span>
-              <ChevronDown className="w-4 h-4 text-[#00C0F9]" />
-            </button>
-          </div>
 
           {/* Scroll cue */}
           <div className="absolute bottom-6 flex flex-col items-center gap-2 opacity-60 hover:opacity-100 transition animate-bounce">

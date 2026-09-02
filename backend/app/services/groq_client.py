@@ -18,9 +18,9 @@ class GroqClient:
 
     def __init__(self):
         self._client = AsyncGroq(api_key=settings.groq_api_key)
-        self.fast_model = "openai/gpt-oss-20b"
-        self.primary_model = settings.groq_model or "openai/gpt-oss-120b"
-        self.fallback_model = settings.groq_fallback_model or "openai/gpt-oss-20b"
+        self.fast_model = settings.groq_model or "qwen/qwen3.8-27b"
+        self.primary_model = settings.groq_model or "qwen/qwen3.8-27b"
+        self.fallback_model = settings.groq_fallback_model or "openai/gpt-oss-120b"
 
     async def fast_completion(
         self,

@@ -23,8 +23,8 @@ class Settings(BaseSettings):
 
     # Groq
     groq_api_key: str = ""
-    groq_model: str = "openai/gpt-oss-120b"
-    groq_fallback_model: str = "openai/gpt-oss-20b"
+    groq_model: str = "qwen/qwen3.8-27b"
+    groq_fallback_model: str = "openai/gpt-oss-120b"
 
     # Deepgram Voice AI
     deepgram_api_key: str = ""

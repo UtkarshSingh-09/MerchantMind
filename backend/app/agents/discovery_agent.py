@@ -409,12 +409,13 @@ class DiscoveryAgent:
         last_search_query = ""
 
         try:
-            for _ in range(3):
+            for _ in range(2):
                 response = await groq_client.chat_completion(
                     messages=llm_messages,
                     tools=DISCOVERY_TOOLS,
                     tool_choice="auto",
-                    temperature=0.3,
+                    temperature=0.2,
+                    max_tokens=350,
                 )
                 response_msg = response.choices[0].message
                 tool_calls = getattr(response_msg, "tool_calls", None)
@@ -572,7 +573,7 @@ class DiscoveryAgent:
         last_search_query = ""
 
         try:
-            for cycle_idx in range(3):
+            for cycle_idx in range(2):
                 yield {
                     "type": "thinking",
                     "agent": "DiscoveryAgent",
@@ -583,7 +584,8 @@ class DiscoveryAgent:
                     messages=llm_messages,
                     tools=DISCOVERY_TOOLS,
                     tool_choice="auto",
-                    temperature=0.3,
+                    temperature=0.2,
+                    max_tokens=350,
                 )
                 response_msg = response.choices[0].message
                 tool_calls = getattr(response_msg, "tool_calls", None)

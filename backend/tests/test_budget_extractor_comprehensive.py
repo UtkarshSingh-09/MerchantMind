@@ -67,7 +67,7 @@ async def test_extract_assistant_only_messages():
 @pytest.mark.asyncio
 async def test_extract_malformed_json_fallback():
     """Malformed LLM response falls back to null budget safely."""
-    messages = [{"role": "user", "content": "Budget is 400 rs"}]
+    messages = [{"role": "user", "content": "I want something affordable and reasonable"}]
     mock_resp = MagicMock()
     mock_resp.choices = [MagicMock(message=MagicMock(content="INVALID JSON STRING"))]
     with patch("app.services.groq_client.groq_client.fast_completion", new_callable=AsyncMock, return_value=mock_resp):

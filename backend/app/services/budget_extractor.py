@@ -2,12 +2,71 @@
 Extracts budget constraints, currency, and strictness from conversational intent.
 """
 
+import re
 import json
 import logging
 from typing import Any
 from app.services.groq_client import groq_client
 
 logger = logging.getLogger(__name__)
+
+SOFT_LIMIT_REGEX = re.compile(
+    r'\b(?:around|approx|approximately|about|roughly|nearly)\s*(?:rs\.?|inr|₹)?\s*([0-9]+(?:\.[0-9]+)?)',
+    re.IGNORECASE,
+)
+HARD_LIMIT_REGEX = re.compile(
+    r'\b(?:under|below|within|upto|up to|max|maximum|not more than|less than|in budget of|bidget of|budget of|budget is|budget)\s+(?:rs\.?|inr|₹)?\s*([0-9]+(?:\.[0-9]+)?)',
+    re.IGNORECASE,
+)
+TRAILING_LIMIT_REGEX = re.compile(
+    r'\b([0-9]+(?:\.[0-9]+)?)\s*(?:rs\.?|inr|₹)?\s*(?:max|budget|limit|only|strictly)\b',
+    re.IGNORECASE,
+)
+
+
+def _try_regex_extraction(text: str) -> dict[str, Any] | None:
+    """Zero-latency (0.01ms) regex extractor for common user budget patterns."""
+    if not text:
+        return None
+
+    # 1. Soft limits first ("around 500", "budget is around 1200")
+    m_soft = SOFT_LIMIT_REGEX.search(text)
+    if m_soft and m_soft.group(1):
+        val = float(m_soft.group(1))
+        return {
+            "budget_amount": val,
+            "currency": "INR",
+            "is_hard_limit": False,
+            "raw_phrase": m_soft.group(0),
+            "reasoning": f"Fast-path regex match for soft budget: {m_soft.group(0)}",
+        }
+
+    # 2. Hard limits ("under 500", "budget 500", "max 700")
+    m_hard = HARD_LIMIT_REGEX.search(text)
+    if m_hard and m_hard.group(1):
+        val = float(m_hard.group(1))
+        return {
+            "budget_amount": val,
+            "currency": "INR",
+            "is_hard_limit": True,
+            "raw_phrase": m_hard.group(0),
+            "reasoning": f"Fast-path regex match for hard budget: {m_hard.group(0)}",
+        }
+
+    # 3. Trailing limits ("650.50 max", "500 budget")
+    m_trail = TRAILING_LIMIT_REGEX.search(text)
+    if m_trail and m_trail.group(1):
+        val = float(m_trail.group(1))
+        return {
+            "budget_amount": val,
+            "currency": "INR",
+            "is_hard_limit": True,
+            "raw_phrase": m_trail.group(0),
+            "reasoning": f"Fast-path regex match for trailing budget: {m_trail.group(0)}",
+        }
+
+    return None
+
 
 EXTRACTION_SYSTEM_PROMPT = """You are a financial constraint extraction model for an e-commerce shopping agent.
 Analyze the user's messages and extract any stated budget or spending constraints.
@@ -30,7 +89,7 @@ Rules:
 
 
 async def extract_structured_budget(messages: list[dict[str, Any]]) -> dict[str, Any]:
-    """Extract structured budget info from recent user messages."""
+    """Extract structured budget info from recent user messages with zero-latency regex fast-path."""
     # Filter to user messages only to prevent assistant hallucinations
     user_msgs = [m for m in messages if m.get("role") == "user"]
     if not user_msgs:
@@ -42,7 +101,13 @@ async def extract_structured_budget(messages: list[dict[str, Any]]) -> dict[str,
             "reasoning": "No user message provided",
         }
 
-    # Extract from last 4 user messages
+    # Zero-latency Fast Path: Check most recent user message
+    last_msg = user_msgs[-1].get("content", "")
+    fast_match = _try_regex_extraction(last_msg)
+    if fast_match:
+        return fast_match
+
+    # Extract from last 4 user messages using LLM fallback
     recent_context = "\n".join([f"User: {m.get('content', '')}" for m in user_msgs[-4:]])
 
     try:

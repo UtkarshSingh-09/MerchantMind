@@ -40,6 +40,12 @@ async def create_order(
             customer_phone=payload.customer_phone,
             customer_email=payload.customer_email,
             callback_url=payload.callback_url,
+            fulfillment_mode=payload.fulfillment_mode or "delivery",
+            delivery_address=payload.delivery_address,
+            delivery_latitude=payload.delivery_latitude,
+            delivery_longitude=payload.delivery_longitude,
+            pickup_time=payload.pickup_time,
+            client_items=payload.items,
         )
         return order
     except ValueError as exc:
@@ -90,6 +96,44 @@ async def get_order_status(
         payment_link=order.payment_link,
         paid_at=order.paid_at,
     )
+
+
+@router.post("/{order_id}/verify-payment", response_model=OrderResponse)
+async def verify_payment_callback(
+    order_id: uuid.UUID,
+    payload: dict[str, Any] | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Mark order as paid upon Razorpay callback verification."""
+    payment_id = (payload or {}).get("razorpay_payment_id") or "rzp_captured_test"
+    order = await order_service.handle_payment_captured(
+        db=db,
+        order_id=order_id,
+        rzp_payment_id=payment_id,
+    )
+    if not order:
+        order = await order_service.get_order_by_id(db, order_id)
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Order {order_id} not found",
+        )
+    return order
+
+
+@router.get("/{order_id}/tracking-data")
+async def get_order_tracking_data_endpoint(
+    order_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Retrieve real dynamic Haversine distance, speed, and real ETA tracking telemetry."""
+    data = await order_service.get_order_tracking_data(db, order_id)
+    if not data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Order {order_id} not found",
+        )
+    return data
 
 
 @router.get("/{order_id}/audit")

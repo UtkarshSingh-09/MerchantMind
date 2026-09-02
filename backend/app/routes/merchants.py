@@ -24,11 +24,18 @@ async def create_merchant(data: MerchantCreate, db: AsyncSession = Depends(get_d
             detail=f"Merchant with email '{data.email}' already exists",
         )
 
-    merchant = Merchant(**data.model_dump())
+    from app.middleware.auth import generate_merchant_api_key
+
+    raw_key, key_hash = generate_merchant_api_key()
+    merchant_data = data.model_dump()
+    merchant = Merchant(**merchant_data, api_key_hash=key_hash)
     db.add(merchant)
     await db.flush()
     await db.refresh(merchant)
-    return merchant
+    
+    response = MerchantResponse.model_validate(merchant)
+    response.api_key = raw_key
+    return response
 
 
 @router.get("/", response_model=list[MerchantResponse])

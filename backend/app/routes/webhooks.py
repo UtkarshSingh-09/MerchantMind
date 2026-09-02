@@ -22,17 +22,21 @@ router = APIRouter()
 # Razorpay Webhook
 # =========================================================================
 
+# In-memory webhook event deduplication cache
+_PROCESSED_WEBHOOK_EVENTS: set[str] = set()
+
+
 @router.post("/razorpay")
 async def razorpay_webhook(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    """Handle incoming Razorpay payment webhooks with cryptographic HMAC signature verification."""
+    """Handle incoming Razorpay payment webhooks with cryptographic HMAC signature verification and idempotency."""
     body_bytes = await request.body()
     body_str = body_bytes.decode("utf-8")
     signature = request.headers.get("X-Razorpay-Signature", "")
 
-    # Verify signature
+    # 1. Verify signature
     is_valid = razorpay_service.verify_webhook_signature(body=body_str, signature=signature)
     if not is_valid:
         logger.warning("Invalid Razorpay webhook signature received.")
@@ -47,8 +51,7 @@ async def razorpay_webhook(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid JSON payload: {exc}")
 
     event = payload.get("event")
-    logger.info("Received Razorpay webhook event: %s", event)
-
+    event_id = payload.get("event_id") or payload.get("id")
     event_payload = payload.get("payload", {})
     payment_entity = event_payload.get("payment", {}).get("entity", {})
     order_entity = event_payload.get("order", {}).get("entity", {})
@@ -59,37 +62,73 @@ async def razorpay_webhook(
     rzp_link_id = payment_link_entity.get("id") or payment_entity.get("notes", {}).get("payment_link_id")
     amount_inr = (payment_entity.get("amount", 0) or 0) / 100.0
 
-    if event in ["payment.captured", "order.paid", "payment_link.paid"]:
-        order = await order_service.handle_payment_captured(
-            db=db,
-            rzp_order_id=rzp_order_id,
-            rzp_payment_id=rzp_payment_id,
-            rzp_link_id=rzp_link_id,
-            amount_paid=amount_inr,
-        )
-        return {
-            "status": "processed",
-            "event": event,
-            "order_id": str(order.id) if order else None,
-            "order_status": order.status if order else "unmatched",
-        }
+    # 2. Idempotent Deduplication by Event ID
+    dedup_key = event_id or f"{event}_{rzp_payment_id or rzp_order_id or rzp_link_id}"
+    if dedup_key in _PROCESSED_WEBHOOK_EVENTS:
+        logger.info("Webhook event %s already processed. Ignoring duplicate delivery.", dedup_key)
+        return {"status": "duplicate_ignored", "event_id": dedup_key}
 
-    elif event in ["payment.failed"]:
-        error_desc = payment_entity.get("error_description") or "Payment failed"
-        order = await order_service.handle_payment_failed(
-            db=db,
-            rzp_order_id=rzp_order_id,
-            rzp_link_id=rzp_link_id,
-            error_reason=error_desc,
-        )
-        return {
-            "status": "processed",
-            "event": event,
-            "order_id": str(order.id) if order else None,
-            "order_status": order.status if order else "unmatched",
-        }
+    # Try Redis for multi-instance deduplication
+    try:
+        import redis.asyncio as aioredis
+        redis_client = aioredis.from_url(settings.resolved_redis_url, decode_responses=True)
+        is_new = await redis_client.set(f"processed_webhook:{dedup_key}", "1", nx=True, ex=86400)
+        await redis_client.aclose()
+        if not is_new:
+            logger.info("Webhook event %s already in Redis. Ignoring duplicate delivery.", dedup_key)
+            return {"status": "duplicate_ignored", "event_id": dedup_key}
+    except Exception:
+        pass
 
-    return {"status": "ignored", "event": event}
+    _PROCESSED_WEBHOOK_EVENTS.add(dedup_key)
+
+    # 3. Process Webhook Event with DLQ Safety
+    try:
+        if event in ["payment.captured", "order.paid", "payment_link.paid"]:
+            order = await order_service.handle_payment_captured(
+                db=db,
+                rzp_order_id=rzp_order_id,
+                rzp_payment_id=rzp_payment_id,
+                rzp_link_id=rzp_link_id,
+                amount_paid=amount_inr,
+            )
+            return {
+                "status": "processed",
+                "event": event,
+                "order_id": str(order.id) if order else None,
+                "order_status": order.status if order else "unmatched",
+            }
+
+        elif event in ["payment.failed"]:
+            error_desc = payment_entity.get("error_description") or "Payment failed"
+            order = await order_service.handle_payment_failed(
+                db=db,
+                rzp_order_id=rzp_order_id,
+                rzp_link_id=rzp_link_id,
+                error_reason=error_desc,
+            )
+            return {
+                "status": "processed",
+                "event": event,
+                "order_id": str(order.id) if order else None,
+                "order_status": order.status if order else "unmatched",
+            }
+
+        return {"status": "ignored", "event": event}
+
+    except Exception as proc_err:
+        logger.error("Error processing Razorpay webhook %s: %s", event, proc_err, exc_info=True)
+        from app.services.dlq_service import dlq_service
+        await dlq_service.record_dead_letter(
+            db=db,
+            event_type=event or "unknown",
+            payload=payload,
+            error_message=str(proc_err),
+            source="razorpay",
+            event_id=event_id,
+        )
+        return {"status": "recorded_to_dlq", "error": str(proc_err)}
+
 
 
 # =========================================================================
@@ -198,3 +237,58 @@ async def whatsapp_webhook(
                     )
 
     return {"status": "success"}
+
+
+# =========================================================================
+# POS / Shopify Inventory Sync Webhook
+# =========================================================================
+
+@router.post("/inventory/sync")
+async def inventory_sync_webhook(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Handle incoming inventory sync webhooks from POS, ERP, or Shopify systems.
+    Accepts:
+    {
+        "merchant_id": "UUID string",
+        "source": "shopify | petpooja | pos",
+        "updates": [
+            {"sku": "optional SKU or id", "name": "Item Name", "in_stock": true, "price": 100, "quantity": 25}
+        ]
+    }
+    """
+    from uuid import UUID
+    from app.services.inventory_sync_service import inventory_sync_service
+
+    try:
+        payload = await request.json()
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid JSON payload: {exc}")
+
+    merchant_id_str = payload.get("merchant_id")
+    if not merchant_id_str:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="merchant_id is required")
+
+    try:
+        merchant_id = UUID(str(merchant_id_str))
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid merchant_id UUID")
+
+    updates = payload.get("updates", [])
+    if not isinstance(updates, list) or len(updates) == 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="updates must be a non-empty array")
+
+    source = payload.get("source", "pos_webhook")
+    result = await inventory_sync_service.sync_batch_inventory(
+        db=db,
+        merchant_id=merchant_id,
+        updates_list=updates,
+        source=source,
+    )
+
+    if not result.get("success"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=result.get("error"))
+
+    return result
+

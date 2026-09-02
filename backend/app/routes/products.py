@@ -190,3 +190,25 @@ async def get_catalog_json_ld(
             for i, product in enumerate(products)
         ],
     }
+
+
+@router.patch("/{merchant_id}/products/{product_id}/stock")
+async def toggle_product_stock(
+    merchant_id: uuid.UUID,
+    product_id: uuid.UUID,
+    in_stock: bool,
+    db: AsyncSession = Depends(get_db),
+):
+    """Quickly toggle a product's in-stock status (Merchant Portal / POS)."""
+    from app.services.inventory_sync_service import inventory_sync_service
+
+    await _get_merchant(merchant_id, db)
+    result = await inventory_sync_service.toggle_product_stock(
+        db=db,
+        product_id=product_id,
+        in_stock=in_stock,
+    )
+    if not result.get("success"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=result.get("error"))
+    return result
+

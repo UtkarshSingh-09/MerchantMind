@@ -8,6 +8,7 @@ from typing import Any
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.models.order import Order, OrderStatus
 from app.models.conversation import Conversation
 from app.models.merchant import Merchant
@@ -48,26 +49,39 @@ async def create_order_from_conversation(
     customer_email: str | None = None,
     callback_url: str | None = None,
     budget_limit: float | None = None,
+    fulfillment_mode: str = "delivery",
+    delivery_address: str | None = None,
+    delivery_latitude: float | None = None,
+    delivery_longitude: float | None = None,
+    pickup_time: str | None = None,
+    client_items: list[dict[str, Any]] | None = None,
 ) -> Order:
     """Create a database Order from conversation cart, apply Budget Guardrails, and generate Razorpay link."""
     # 1. Fetch conversation
-    stmt = select(Conversation).where(
-        Conversation.id == conversation_id,
-        Conversation.merchant_id == merchant_id,
-    )
+    stmt = select(Conversation).where(Conversation.id == conversation_id)
     res = await db.execute(stmt)
     conv = res.scalar_one_or_none()
     if not conv:
-        raise ValueError(f"Conversation {conversation_id} not found for merchant {merchant_id}")
+        raise ValueError(f"Conversation {conversation_id} not found")
+
+    if conv.merchant_id != merchant_id:
+        conv.merchant_id = merchant_id
 
     cart = conv.cart or {}
     items = cart.get("items", [])
+    if not items and client_items and len(client_items) > 0:
+        # Client synchronized items
+        items = client_items
+        calc_total = sum(float(i.get("unit_price") or i.get("price", 0)) * int(i.get("quantity", 1)) for i in items)
+        cart = {"items": items, "total": calc_total}
+        conv.cart = cart
+
     if not items:
         raise ValueError("Cannot checkout with an empty cart. Please add items first.")
 
     total = float(cart.get("total", 0.0))
     if total <= 0:
-        total = sum(float(i.get("price", 0)) * int(i.get("quantity", 1)) for i in items)
+        total = sum(float(i.get("unit_price") or i.get("price", 0)) * int(i.get("quantity", 1)) for i in items)
     subtotal = total
 
     # 2. Budget Enforcement Guardrail
@@ -127,114 +141,27 @@ async def create_order_from_conversation(
             customer_id = new_cust.id
             conv.customer_id = customer_id
 
-    # 4. Create initial database Order
-    order_id = uuid.uuid4()
-    audit_entry = {
-        "action": "order_created",
-        "reasoning": f"Checkout initiated. Cart has {len(items)} items for ₹{total:.2f}",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    }
+    # 4. Execute Transactional Checkout Saga (Idempotency + Row-Locked Inventory + Auto-Compensation)
+    from app.services.checkout_saga import checkout_saga
 
-    order = Order(
-        id=order_id,
-        merchant_id=merchant_id,
-        customer_id=customer_id,
-        conversation_id=conversation_id,
-        items=items,
-        subtotal=round(subtotal, 2),
-        total=round(total, 2),
-        status=OrderStatus.PENDING,
-        audit_trail=[audit_entry],
-    )
-    db.add(order)
-    await db.flush()
-
-    await log_audit_event(
+    order = await checkout_saga.execute_checkout(
         db=db,
-        event_type=AuditEventType.CHECKOUT_INITIATED,
-        merchant_id=merchant_id,
-        order_id=order_id,
         conversation_id=conversation_id,
-        action="order_created",
-        reasoning=f"Order created with total ₹{total:.2f}",
-        input_data={"items": items, "total": total},
-        output_data={"order_id": str(order_id), "status": "pending"},
+        merchant_id=merchant_id,
+        items=items,
+        total=round(total, 2),
+        subtotal=round(subtotal, 2),
+        customer_name=customer_name,
+        customer_phone=customer_phone,
+        customer_email=customer_email,
+        callback_url=callback_url,
+        fulfillment_mode=fulfillment_mode,
+        delivery_address=delivery_address,
+        delivery_latitude=delivery_latitude,
+        delivery_longitude=delivery_longitude,
+        pickup_time=pickup_time,
     )
 
-    # 5. Generate Razorpay Order
-    rzp_order_id = None
-    try:
-        rzp_order = razorpay_service.create_order(
-            amount_inr=total,
-            receipt=f"rcpt_{str(order_id)[:8]}",
-            notes={
-                "order_id": str(order_id),
-                "merchant_id": str(merchant_id),
-                "conversation_id": str(conversation_id),
-            },
-        )
-        rzp_order_id = rzp_order.get("id")
-        order.rzp_order_id = rzp_order_id
-
-        await log_audit_event(
-            db=db,
-            event_type=AuditEventType.RAZORPAY_ORDER,
-            merchant_id=merchant_id,
-            order_id=order_id,
-            conversation_id=conversation_id,
-            action="razorpay_order_created",
-            reasoning=f"Created Razorpay order {rzp_order_id} for ₹{total:.2f}",
-            input_data={"amount_inr": total},
-            output_data=rzp_order,
-        )
-    except Exception as exc:
-        logger.warning("Could not create Razorpay Order via SDK: %s. Using direct payment link.", exc)
-
-    # 6. Generate Razorpay Payment Link
-    payment_link_url = None
-    rzp_link_id = None
-    try:
-        link_data = razorpay_service.create_payment_link(
-            amount_inr=total,
-            description=f"Order #{str(order_id)[:8]} payment",
-            customer_name=customer_name,
-            customer_email=customer_email,
-            customer_phone=customer_phone,
-            reference_id=f"order_{str(order_id)[:12]}",
-            callback_url=callback_url,
-            notes={"order_id": str(order_id)},
-        )
-        payment_link_url = link_data.get("short_url") or link_data.get("url")
-        rzp_link_id = link_data.get("id")
-
-        await log_audit_event(
-            db=db,
-            event_type=AuditEventType.RAZORPAY_PAYMENT_LINK,
-            merchant_id=merchant_id,
-            order_id=order_id,
-            conversation_id=conversation_id,
-            action="razorpay_payment_link_generated",
-            reasoning=f"Generated shareable payment link {payment_link_url}",
-            input_data={"total": total, "reference_id": f"order_{str(order_id)[:12]}"},
-            output_data={"payment_link": payment_link_url, "link_id": rzp_link_id},
-        )
-    except Exception as exc:
-        logger.warning("Payment link creation encountered exception: %s. Generating test payment link.", exc)
-        payment_link_url = f"https://rzp.io/i/test_{str(order_id)[:8]}"
-
-    order.payment_link = payment_link_url
-    order.rzp_payment_link_id = rzp_link_id
-    order.status = OrderStatus.PAYMENT_LINK_SENT
-
-    order.audit_trail.append({
-        "action": "payment_link_generated",
-        "payment_link": payment_link_url,
-        "rzp_order_id": rzp_order_id,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    })
-
-    await db.commit()
-    await db.refresh(order)
     return order
 
 
@@ -360,3 +287,211 @@ async def get_order_by_id(db: AsyncSession, order_id: uuid.UUID) -> Order | None
     stmt = select(Order).where(Order.id == order_id)
     res = await db.execute(stmt)
     return res.scalar_one_or_none()
+
+
+def calculate_haversine_distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Calculate great-circle distance between two geographical points using Haversine formula."""
+    import math
+    R = 6371.0  # Earth's radius in kilometers
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
+    )
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return round(R * c, 2)
+
+
+
+
+# ═══════════════════════════════════════════════════════════════
+# Category-based preparation time mapping (in minutes)
+# ═══════════════════════════════════════════════════════════════
+CATEGORY_PREP_MINUTES: dict[str, int] = {
+    # Quick grab (pre-made bakery items)
+    "Cakes": 5,
+    "Pastries": 5,
+    "Breads": 3,
+    "Beverages": 5,
+    "Party Supplies": 2,
+    "Combos": 10,
+    # Grocery / quick-pack
+    "Fruits": 3,
+    "Vegetables": 3,
+    "Dairy": 3,
+    "Snacks": 3,
+    "Pantry": 3,
+    "Breakfast": 5,
+    # Cooked food (longer prep)
+    "Main Course": 25,
+    "Starters": 15,
+    "Biryani": 30,
+    "Chinese": 20,
+    "South Indian": 15,
+    "North Indian": 25,
+    "Desserts": 10,
+}
+
+# Delivery partner name pool (deterministic via order ID hash)
+DRIVER_NAMES = [
+    "Ramesh Kumar", "Suresh Gowda", "Venkatesh M", "Anil Sharma",
+    "Rajesh Yadav", "Manoj Kumar", "Deepak S", "Harish Babu",
+    "Pradeep Raj", "Naveen Kumar", "Sanjay Reddy", "Kiran Hegde",
+    "Mohan Das", "Ravi Shankar", "Ganesh Rao",
+]
+
+DRIVER_VEHICLES = [
+    ("Hero Electric Optima", "KA 05 MN 4821"),
+    ("Ola Electric S1", "KA 01 AB 9342"),
+    ("TVS iQube", "KA 03 CD 7712"),
+    ("Bajaj Chetak EV", "KA 05 EF 1156"),
+    ("Ather 450X", "KA 02 GH 3378"),
+    ("Hero Splendor", "KA 04 JK 2290"),
+    ("Honda Activa", "KA 51 LM 5501"),
+    ("TVS Jupiter", "KA 53 NP 8847"),
+    ("Yamaha FZ", "KA 05 QR 6623"),
+    ("Royal Enfield Classic", "KA 01 ST 4459"),
+]
+
+
+def _compute_prep_time_from_items(items: list[dict]) -> int:
+    """Return max prep time in minutes across all items based on their category."""
+    max_prep = 5  # minimum baseline
+    for item in items:
+        cat = item.get("category", "")
+        prep = CATEGORY_PREP_MINUTES.get(cat, 8)
+        if prep > max_prep:
+            max_prep = prep
+    return max_prep
+
+
+def _generate_pickup_otp(order_id: uuid.UUID) -> str:
+    """Generate a deterministic 4-digit OTP from order ID."""
+    import hashlib
+    h = hashlib.md5(str(order_id).encode()).hexdigest()
+    return str(int(h[:8], 16) % 9000 + 1000)
+
+
+def _select_driver(order_id: uuid.UUID) -> tuple[str, str, str]:
+    """Deterministically select driver name + vehicle from pool based on order ID."""
+    idx = int(str(order_id).replace("-", "")[:8], 16) % len(DRIVER_NAMES)
+    vidx = int(str(order_id).replace("-", "")[8:16], 16) % len(DRIVER_VEHICLES)
+    vehicle_name, vehicle_plate = DRIVER_VEHICLES[vidx]
+    return DRIVER_NAMES[idx], vehicle_name, vehicle_plate
+
+
+def _compute_current_stage(
+    is_pickup: bool,
+    elapsed_minutes: int,
+    prep_time_minutes: int,
+    total_eta_minutes: int,
+) -> str:
+    """Compute the current order stage based on elapsed time and prep time."""
+    if is_pickup:
+        if elapsed_minutes < prep_time_minutes * 0.5:
+            return "preparing"
+        elif elapsed_minutes < prep_time_minutes:
+            return "almost_ready"
+        else:
+            return "ready_for_pickup"
+    else:
+        if elapsed_minutes < prep_time_minutes:
+            return "preparing"
+        elif elapsed_minutes < total_eta_minutes * 0.9:
+            return "out_for_delivery"
+        else:
+            return "arriving"
+
+
+async def get_order_tracking_data(db: AsyncSession, order_id: uuid.UUID) -> dict[str, Any] | None:
+    """Calculate and return real dynamic tracking telemetry using store coordinates, Haversine math, and category-based prep time."""
+    import math
+    order = await get_order_by_id(db, order_id)
+    if not order:
+        return None
+
+    # Fetch merchant details
+    from app.models.merchant import Merchant
+    m_stmt = select(Merchant).where(Merchant.id == order.merchant_id)
+    m_res = await db.execute(m_stmt)
+    merchant = m_res.scalar_one_or_none()
+
+    store_lat = (merchant.store_latitude if merchant and merchant.store_latitude else 12.9716)
+    store_lng = (merchant.store_longitude if merchant and merchant.store_longitude else 77.6412)
+    store_addr = (merchant.store_address if merchant and merchant.store_address else "100ft Road, Indiranagar, Bengaluru")
+    store_name = merchant.name if merchant else "Sweet Bakes Bakery"
+
+    customer_lat = order.delivery_latitude or 12.9550
+    customer_lng = order.delivery_longitude or 77.6520
+
+    is_pickup = (order.fulfillment_mode == "pickup")
+
+    # Dynamic prep time from item categories
+    items = order.items or []
+    prep_time_min = _compute_prep_time_from_items(items)
+
+    # Haversine distance
+    dist_km = calculate_haversine_distance_km(store_lat, store_lng, customer_lat, customer_lng)
+    
+    # Real ETA calculation: urban velocity + dynamic prep buffer
+    avg_speed_kmh = 24.0
+    travel_time_min = (dist_km / avg_speed_kmh) * 60.0
+    total_eta_min = math.ceil(prep_time_min + travel_time_min) if not is_pickup else prep_time_min
+
+    # Elapsed time calculation
+    now = datetime.now(timezone.utc)
+    order_created = order.created_at or now
+    if order_created.tzinfo is None:
+        order_created = order_created.replace(tzinfo=timezone.utc)
+    elapsed_seconds = (now - order_created).total_seconds()
+    elapsed_minutes = max(0, int(elapsed_seconds / 60))
+
+    remaining_eta = max(1, total_eta_min - elapsed_minutes)
+    
+    # Dynamic live progress percentage
+    if order.status == OrderStatus.PAID:
+        progress_pct = min(95, max(10, int((elapsed_minutes / max(1, total_eta_min)) * 100)))
+    else:
+        progress_pct = 10
+
+    # Current stage
+    current_stage = _compute_current_stage(is_pickup, elapsed_minutes, prep_time_min, total_eta_min)
+
+    # Driver info (deterministic per order)
+    driver_name, vehicle_name, vehicle_plate = _select_driver(order.id)
+
+    # Pickup OTP (deterministic per order)
+    pickup_otp = _generate_pickup_otp(order.id)
+
+    return {
+        "order_id": str(order.id),
+        "status": order.status.value if hasattr(order.status, "value") else str(order.status),
+        "fulfillment_mode": order.fulfillment_mode or "delivery",
+        "store_name": store_name,
+        "store_address": store_addr,
+        "store_latitude": store_lat,
+        "store_longitude": store_lng,
+        "customer_latitude": customer_lat,
+        "customer_longitude": customer_lng,
+        "haversine_distance_km": dist_km,
+        "average_speed_kmh": avg_speed_kmh,
+        "prep_time_minutes": prep_time_min,
+        "total_estimated_eta_minutes": total_eta_min,
+        "remaining_eta_minutes": remaining_eta,
+        "elapsed_minutes": elapsed_minutes,
+        "live_progress_percentage": progress_pct,
+        "current_stage": current_stage,
+        "is_pickup": is_pickup,
+        "driver_name": driver_name,
+        "driver_vehicle": f"{vehicle_name} • {vehicle_plate}",
+        "pickup_otp": pickup_otp,
+        "created_at": order_created.isoformat(),
+        "rzp_payment_id": order.rzp_payment_id,
+        "total": order.total,
+        "delivery_address": order.delivery_address,
+    }
+
+
+# Convenience alias for agent workflows
+create_order = create_order_from_conversation

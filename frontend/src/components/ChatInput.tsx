@@ -8,16 +8,14 @@ import {
   Mic,
   MicOff,
   Volume2,
-  Sparkles,
   Cake,
   Salad,
   Gift,
   Coffee,
-  Store,
   Tag,
-  ShoppingBag,
   Compass,
 } from "lucide-react";
+import { VoiceState } from "@/lib/voice-manager";
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
@@ -25,13 +23,17 @@ interface ChatInputProps {
   onSuggestionClick?: (suggestion: string) => void;
   suggestions?: string[];
   placeholder?: string;
+  isVoiceMode?: boolean;
+  voiceState?: VoiceState;
+  onToggleVoice?: () => void;
+  liveTranscript?: string;
 }
 
 const DEFAULT_SUGGESTIONS = [
+  "Hey, order me one Manchurian under 500",
   "Chocolate cake under ₹800",
   "Fresh breakfast pastries & croissants",
   "Weekly grocery basket under ₹1000",
-  "Pure linen shirt under ₹1500",
   "Explore Bangalore bakeries & restaurants",
 ];
 
@@ -41,70 +43,24 @@ export function ChatInput({
   onSuggestionClick,
   suggestions = DEFAULT_SUGGESTIONS,
   placeholder = "Ask for items or budget (e.g. under ₹800)...",
+  isVoiceMode = false,
+  voiceState = "idle",
+  onToggleVoice,
+  liveTranscript = "",
 }: ChatInputProps) {
   const [input, setInput] = useState("");
-  const [isListening, setIsListening] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
-  const [speechSupported, setSpeechSupported] = useState(false);
-  const recognitionRef = useRef<any>(null);
 
+  // Sync live speech transcript to input field
   useEffect(() => {
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-    if (SpeechRecognition) {
-      setSpeechSupported(true);
-      const recognition = new SpeechRecognition();
-      recognition.continuous = false;
-      recognition.interimResults = true;
-      recognition.lang = "en-IN";
-
-      recognition.onresult = (event: any) => {
-        const transcript = Array.from(event.results)
-          .map((res: any) => res[0].transcript)
-          .join("");
-        setInput(transcript);
-      };
-
-      recognition.onerror = (event: any) => {
-        console.warn("Speech recognition error:", event.error);
-        setIsListening(false);
-      };
-
-      recognition.onend = () => {
-        setIsListening(false);
-      };
-
-      recognitionRef.current = recognition;
+    if (liveTranscript) {
+      setInput(liveTranscript);
     }
-  }, []);
-
-  const toggleListening = () => {
-    if (!speechSupported || !recognitionRef.current) {
-      alert("Voice input is not supported in this browser.");
-      return;
-    }
-
-    if (isListening) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-    } else {
-      try {
-        recognitionRef.current.start();
-        setIsListening(true);
-      } catch (err) {
-        console.error("Speech start error:", err);
-      }
-    }
-  };
+  }, [liveTranscript]);
 
   const handleSubmit = () => {
     const trimmed = input.trim();
     if (!trimmed || isLoading) return;
-    if (isListening && recognitionRef.current) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-    }
     onSendMessage(trimmed);
     setInput("");
   };
@@ -118,6 +74,9 @@ export function ChatInput({
 
   const renderSuggestionIcon = (suggestion: string) => {
     const s = suggestion.toLowerCase();
+    if (s.includes("manchurian") || s.includes("chinese") || s.includes("biryani") || s.includes("order")) {
+      return <Volume2 className="h-3 w-3 text-emerald-400 shrink-0" />;
+    }
     if (s.includes("cake") || s.includes("dessert") || s.includes("birthday") || s.includes("sweet")) {
       return <Cake className="h-3 w-3 text-purple-400 shrink-0" />;
     }
@@ -170,22 +129,40 @@ export function ChatInput({
 
       {/* Voice Listening Wave Indicator */}
       <AnimatePresence>
-        {isListening && (
+        {isVoiceMode && (
           <motion.div
             initial={{ opacity: 0, height: 0, scale: 0.95 }}
             animate={{ opacity: 1, height: "auto", scale: 1 }}
             exit={{ opacity: 0, height: 0, scale: 0.95 }}
             transition={{ duration: 0.25, ease: "easeOut" }}
-            className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-[#7C3AED]/15 border border-[#7C3AED]/40 text-xs text-[#A78BFA]"
+            className={`flex items-center justify-between px-3.5 py-2 rounded-xl border text-xs backdrop-blur-md ${
+              voiceState === "speaking"
+                ? "bg-emerald-950/40 border-emerald-500/40 text-emerald-300"
+                : voiceState === "listening"
+                ? "bg-amber-950/40 border-amber-500/40 text-amber-300"
+                : "bg-[#7C3AED]/15 border-[#7C3AED]/40 text-[#A78BFA]"
+            }`}
           >
             <div className="flex items-center gap-2">
-              <Volume2 className="h-3.5 w-3.5 text-[#0891B2] animate-bounce" />
-              <span className="font-medium">Listening to your voice...</span>
+              {voiceState === "speaking" ? (
+                <Volume2 className="h-3.5 w-3.5 text-emerald-400 animate-pulse" />
+              ) : (
+                <Mic className="h-3.5 w-3.5 text-amber-400 animate-bounce" />
+              )}
+              <span className="font-medium">
+                {voiceState === "speaking"
+                  ? "Speaking response aloud..."
+                  : voiceState === "thinking"
+                  ? "Processing your request..."
+                  : "Listening to your voice..."}
+              </span>
               <span className="flex gap-0.5 items-center">
                 {[0, 1, 2, 3].map((i) => (
                   <motion.span
                     key={i}
-                    className="w-0.5 rounded-full bg-[#0891B2]"
+                    className={`w-0.5 rounded-full ${
+                      voiceState === "speaking" ? "bg-emerald-400" : "bg-amber-400"
+                    }`}
                     animate={{ height: ["4px", "14px", "4px"] }}
                     transition={{
                       duration: 0.6,
@@ -197,14 +174,16 @@ export function ChatInput({
                 ))}
               </span>
             </div>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={toggleListening}
-              className="text-[11px] font-semibold text-rose-400 hover:text-rose-300 cursor-pointer"
-            >
-              Stop
-            </motion.button>
+            {onToggleVoice && (
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={onToggleVoice}
+                className="text-[11px] font-semibold text-rose-400 hover:text-rose-300 cursor-pointer"
+              >
+                Mute Voice ✕
+              </motion.button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -212,9 +191,11 @@ export function ChatInput({
       {/* Input Field Bar with subtle glow */}
       <motion.div
         animate={{
-          borderColor: isFocused ? "#7C3AED" : "#2A2A3E",
+          borderColor: isFocused ? "#7C3AED" : isVoiceMode ? "#06B6D4" : "#2A2A3E",
           boxShadow: isFocused
             ? "0 0 24px -2px rgba(124, 58, 237, 0.35)"
+            : isVoiceMode
+            ? "0 0 20px -2px rgba(6, 182, 212, 0.25)"
             : "0 4px 20px -2px rgba(0, 0, 0, 0.4)",
         }}
         transition={{ duration: 0.2 }}
@@ -227,30 +208,30 @@ export function ChatInput({
           onKeyDown={handleKeyDown}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
-          placeholder={placeholder}
+          placeholder={isVoiceMode ? "🎙️ Voice Active — Speak or type..." : placeholder}
           disabled={isLoading}
           className="flex-1 bg-transparent px-3.5 py-2 text-xs sm:text-sm text-[#F0EEFF] placeholder-zinc-500 focus:outline-none disabled:opacity-50"
         />
 
-        {/* Voice Input Mic Button */}
-        {speechSupported && (
+        {/* Ambient Voice Orb / Mic Toggle Button */}
+        {onToggleVoice && (
           <motion.button
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.92 }}
             type="button"
-            onClick={toggleListening}
+            onClick={onToggleVoice}
             disabled={isLoading}
             className={`flex h-8 w-8 items-center justify-center rounded-xl transition-all cursor-pointer ${
-              isListening
-                ? "bg-rose-500 text-white shadow-lg shadow-rose-500/30 animate-pulse"
+              isVoiceMode
+                ? "bg-gradient-to-tr from-cyan-500 to-emerald-500 text-white shadow-lg shadow-cyan-500/30 animate-pulse"
                 : "bg-[#1E1E2E] text-zinc-400 hover:bg-[#2A2A3E] hover:text-white"
             }`}
-            title={isListening ? "Stop listening" : "Voice input"}
+            title={isVoiceMode ? "Voice mode enabled" : "Enable ambient voice mode"}
           >
-            {isListening ? (
-              <MicOff className="h-3.5 w-3.5" />
+            {isVoiceMode ? (
+              <Mic className="h-4 w-4 text-white" />
             ) : (
-              <Mic className="h-3.5 w-3.5" />
+              <MicOff className="h-3.5 w-3.5 text-zinc-400" />
             )}
           </motion.button>
         )}

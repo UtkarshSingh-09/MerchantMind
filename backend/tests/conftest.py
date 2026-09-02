@@ -54,6 +54,9 @@ async def setup_test_db():
         await conn.execute(text("ALTER TABLE products ADD COLUMN IF NOT EXISTS price_paise INTEGER;"))
         await conn.execute(text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS total_paise BIGINT;"))
         await conn.execute(text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS subtotal_paise BIGINT;"))
+        await conn.execute(text("ALTER TABLE customers ADD COLUMN IF NOT EXISTS saved_addresses JSONB DEFAULT '[]'::jsonb;"))
+        await conn.execute(text("ALTER TABLE customers ADD COLUMN IF NOT EXISTS preferences JSONB DEFAULT '{}'::jsonb;"))
+        await conn.execute(text("ALTER TABLE customers ADD COLUMN IF NOT EXISTS favorite_merchants JSONB DEFAULT '[]'::jsonb;"))
         # Database-level integrity check constraints
         await conn.execute(text("""
             DO $$ BEGIN 

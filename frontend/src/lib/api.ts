@@ -184,6 +184,7 @@ export async function fetchMerchants(): Promise<Merchant[]> {
 export async function sendChatMessage(payload: {
   merchant_id?: string | null;
   conversation_id?: string | null;
+  customer_id?: string | null;
   message: string;
 }): Promise<ChatResponse> {
   // Remove null/undefined merchant_id from payload for clean JSON
@@ -192,6 +193,7 @@ export async function sendChatMessage(payload: {
   };
   if (payload.merchant_id) cleanPayload.merchant_id = payload.merchant_id;
   if (payload.conversation_id) cleanPayload.conversation_id = payload.conversation_id;
+  if (payload.customer_id) cleanPayload.customer_id = payload.customer_id;
 
   const res = await resilientFetch("/api/chat/", {
     method: "POST",
@@ -213,6 +215,7 @@ export async function sendChatMessageStreaming(
   payload: {
     merchant_id?: string | null;
     conversation_id?: string | null;
+    customer_id?: string | null;
     message: string;
   },
   onEvent: (event: ReasoningEvent) => void
@@ -222,6 +225,7 @@ export async function sendChatMessageStreaming(
   };
   if (payload.merchant_id) cleanPayload.merchant_id = payload.merchant_id;
   if (payload.conversation_id) cleanPayload.conversation_id = payload.conversation_id;
+  if (payload.customer_id) cleanPayload.customer_id = payload.customer_id;
 
   const res = await resilientFetch("/api/chat/stream", {
     method: "POST",
@@ -491,15 +495,37 @@ export async function runReconciliationJob(): Promise<any> {
   return await res.json();
 }
 
-export async function fetchDeadLetterQueue(): Promise<any[]> {
+export interface CustomerAddress {
+  label: string;
+  address: string;
+  lat?: number;
+  lng?: number;
+  is_default?: boolean;
+}
+
+export interface CustomerProfile {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  saved_addresses: CustomerAddress[];
+  preferences?: Record<string, any>;
+  favorite_merchants?: Array<{ name: string; last_item?: string; rating?: number }>;
+  order_count: number;
+  total_spent: number;
+  formatted_memory?: string;
+}
+
+export async function fetchDemoCustomer(): Promise<CustomerProfile | null> {
   try {
-    const res = await resilientFetch("/api/analytics/dlq", { cache: "no-store" });
-    if (!res.ok) return [];
+    const res = await resilientFetch("/api/customers/demo", { cache: "no-store" });
+    if (!res.ok) return null;
     return await res.json();
   } catch (error) {
-    console.error("fetchDeadLetterQueue error:", error);
-    return [];
+    console.error("fetchDemoCustomer error:", error);
+    return null;
   }
 }
+
 
 

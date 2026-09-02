@@ -1,10 +1,11 @@
-"""Customer model — end users who buy from merchants."""
+"""Customer model — end users who buy from merchants with memory profiles."""
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import String, Float, DateTime, ForeignKey, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -24,6 +25,17 @@ class Customer(Base):
     phone: Mapped[str] = mapped_column(String(20), nullable=False)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
+    # Ambient Memory Profile & Context
+    saved_addresses: Mapped[list[dict[str, Any]] | None] = mapped_column(
+        JSONB, default=list, nullable=True
+    )
+    preferences: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB, default=dict, nullable=True
+    )
+    favorite_merchants: Mapped[list[dict[str, Any]] | None] = mapped_column(
+        JSONB, default=list, nullable=True
+    )
+
     # Metrics
     total_spent: Mapped[float] = mapped_column(Float, default=0.0)
     order_count: Mapped[int] = mapped_column(default=0)
@@ -42,4 +54,4 @@ class Customer(Base):
     conversations = relationship("Conversation", back_populates="customer", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
-        return f"<Customer(id={self.id}, phone='{self.phone}')>"
+        return f"<Customer(id={self.id}, phone='{self.phone}', name='{self.name}')>"

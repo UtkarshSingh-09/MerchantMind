@@ -15,6 +15,7 @@ async def get_or_create_conversation(
     conversation_id: uuid.UUID | None = None,
     channel: str = "web",
     customer_phone: str | None = None,
+    customer_id: uuid.UUID | None = None,
 ) -> Conversation:
     """Fetch existing conversation or create a new one.
 
@@ -27,6 +28,8 @@ async def get_or_create_conversation(
         if conv:
             if merchant_id and conv.merchant_id != merchant_id:
                 conv.merchant_id = merchant_id
+            if customer_id and not conv.customer_id:
+                conv.customer_id = customer_id
             return conv
 
     # Verify merchant exists (if provided)
@@ -40,6 +43,7 @@ async def get_or_create_conversation(
     new_conv = Conversation(
         id=conversation_id or uuid.uuid4(),
         merchant_id=merchant_id,  # None for Discovery Mode
+        customer_id=customer_id,
         channel=channel,
         messages=[],
         cart={"items": [], "total": 0.0},

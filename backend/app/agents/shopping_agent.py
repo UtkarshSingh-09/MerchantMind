@@ -25,7 +25,7 @@ from app.services.conversation_service import (
 )
 from app.services.budget_extractor import extract_structured_budget
 from app.services.audit_service import log_audit_event, AuditEventType
-from app.services.memory_service import build_optimized_context
+from app.services.memory_service import build_optimized_context, build_customer_profile_memory
 from app.services.entity_resolver import entity_resolver
 from app.services.inventory_sync_service import inventory_sync_service
 from app.services import order_service
@@ -141,6 +141,7 @@ def _build_shopping_prompt(
     catalog_summary: list[dict[str, Any]],
     current_cart: dict[str, Any],
     handoff_context: dict[str, Any] | None = None,
+    customer_memory: str = "",
 ) -> str:
     cart_items = current_cart.get("items", [])
     cart_total = current_cart.get("total", 0.0)
@@ -175,11 +176,13 @@ def _build_shopping_prompt(
 Seamlessly fulfill the customer's goal without asking them to repeat themselves!
 """
 
+    memory_section = f"\n\n{customer_memory}\n" if customer_memory else ""
+
     return f"""You are ShoppingAgent in MerchantMind — the AI Shopping Concierge for '{merchant.name}'.
 About the store: {merchant.description or 'Artisan & Specialty Store'}.
 Store Location: {merchant.store_address or 'Bangalore, India'}
 Currency: INR (₹).
-
+{memory_section}
 {handoff_text}
 CATALOG OVERVIEW:
 {catalog_text}
@@ -580,11 +583,13 @@ class ShoppingAgent:
                 )
 
         catalog_summary = await get_merchant_catalog_summary(db, merchant.id, limit=30)
+        customer_mem = await build_customer_profile_memory(conversation.customer_id, db)
         system_prompt = _build_shopping_prompt(
             merchant=merchant,
             catalog_summary=catalog_summary,
             current_cart=cart,
             handoff_context=conversation.handoff_context,
+            customer_memory=customer_mem,
         )
 
         # Memory optimization: sliding window + summarization
@@ -847,11 +852,13 @@ class ShoppingAgent:
                 return
 
         catalog_summary = await get_merchant_catalog_summary(db, merchant.id, limit=30)
+        customer_mem = await build_customer_profile_memory(conversation.customer_id, db)
         system_prompt = _build_shopping_prompt(
             merchant=merchant,
             catalog_summary=catalog_summary,
             current_cart=cart,
             handoff_context=conversation.handoff_context,
+            customer_memory=customer_mem,
         )
 
         optimized_history = await build_optimized_context(conversation, max_recent=6)

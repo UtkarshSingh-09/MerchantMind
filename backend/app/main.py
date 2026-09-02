@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import engine, Base
 from app.middleware.error_handler import ErrorHandlerMiddleware
-from app.routes import merchants, products, chat, orders, webhooks, health, campaigns, audit, merchant_chat, analytics
+from app.routes import merchants, products, chat, orders, webhooks, health, campaigns, audit, merchant_chat, analytics, customers
 # Import all models to ensure they register on Base.metadata
 from app.models import merchant, product, customer, conversation, order, campaign, audit_log, dead_letter
 
@@ -57,6 +57,9 @@ async def lifespan(app: FastAPI):
         await conn.execute(text("ALTER TABLE products ADD COLUMN IF NOT EXISTS price_paise INTEGER;"))
         await conn.execute(text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS total_paise BIGINT;"))
         await conn.execute(text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS subtotal_paise BIGINT;"))
+        await conn.execute(text("ALTER TABLE customers ADD COLUMN IF NOT EXISTS saved_addresses JSONB DEFAULT '[]'::jsonb;"))
+        await conn.execute(text("ALTER TABLE customers ADD COLUMN IF NOT EXISTS preferences JSONB DEFAULT '{}'::jsonb;"))
+        await conn.execute(text("ALTER TABLE customers ADD COLUMN IF NOT EXISTS favorite_merchants JSONB DEFAULT '[]'::jsonb;"))
         # Database-level integrity check constraints
         await conn.execute(text("""
             DO $$ BEGIN 
@@ -121,5 +124,6 @@ app.include_router(orders.router, prefix="/api/orders", tags=["Orders"])
 app.include_router(webhooks.router, prefix="/api/webhooks", tags=["Webhooks"])
 app.include_router(campaigns.router, prefix="/api/campaigns", tags=["Campaigns"])
 app.include_router(audit.router, prefix="/api/audit", tags=["Audit"])
+app.include_router(customers.router, tags=["Customers"])
 app.include_router(analytics.router, prefix="/api", tags=["Analytics & Benchmarks"])
 

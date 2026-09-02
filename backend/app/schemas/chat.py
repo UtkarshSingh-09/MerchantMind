@@ -9,6 +9,7 @@ from pydantic import BaseModel
 class ChatRequest(BaseModel):
     merchant_id: uuid.UUID | None = None  # None = Discovery Mode (cross-merchant)
     conversation_id: uuid.UUID | None = None
+    customer_id: uuid.UUID | None = None
     message: str
     customer_phone: str | None = None
 

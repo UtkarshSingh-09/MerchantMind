@@ -55,6 +55,7 @@ async def send_chat_message(
             merchant_id=payload.merchant_id,
             conversation_id=payload.conversation_id,
             customer_phone=payload.customer_phone,
+            customer_id=payload.customer_id,
         )
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
@@ -106,6 +107,7 @@ async def send_chat_message_stream(
             merchant_id=payload.merchant_id,
             conversation_id=payload.conversation_id,
             customer_phone=payload.customer_phone,
+            customer_id=payload.customer_id,
         )
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))

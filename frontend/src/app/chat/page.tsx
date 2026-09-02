@@ -26,6 +26,9 @@ import {
   Cpu,
   Compass,
   RotateCcw,
+  Volume2,
+  Mic,
+  MicOff,
 } from "lucide-react";
 import {
   fetchMerchants,
@@ -34,15 +37,19 @@ import {
   updateCartDirectly,
   createOrder,
   fetchOrderStatus,
+  fetchDemoCustomer,
   Merchant,
   CartItem,
   ProductRecommendation,
   ReasoningEvent,
+  CustomerProfile,
 } from "@/lib/api";
 import { ChatMessage, MessageProps } from "@/components/ChatMessage";
 import { CartSidebar } from "@/components/CartSidebar";
 import { ChatInput } from "@/components/ChatInput";
 import { AgentReasoningPanel, ReasoningLog } from "@/components/AgentReasoningPanel";
+import { VoiceOrb } from "@/components/VoiceOrb";
+import { voiceManager, VoiceState } from "@/lib/voice-manager";
 
 // Real-Time ReAct Reasoning Stream Indicator with Professional Lucide Icons
 function LiveReActStream({ events }: { events: ReasoningEvent[] }) {
@@ -230,6 +237,13 @@ export default function ChatPage() {
   const [reasoningLogs, setReasoningLogs] = useState<ReasoningLog[]>([]);
   const [liveStreamingEvents, setLiveStreamingEvents] = useState<ReasoningEvent[]>([]);
   const [notification, setNotification] = useState<{ msg: string; type?: "success" | "error" } | null>(null);
+  
+  // Ambient Voice & Customer Memory States
+  const [customerProfile, setCustomerProfile] = useState<CustomerProfile | null>(null);
+  const [showMemoryModal, setShowMemoryModal] = useState(false);
+  const [isVoiceMode, setIsVoiceMode] = useState(false);
+  const [voiceState, setVoiceState] = useState<VoiceState>("idle");
+  const [liveTranscript, setLiveTranscript] = useState("");
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -241,18 +255,57 @@ export default function ChatPage() {
     scrollToBottom();
   }, [messages, isLoading, activePaymentLink, liveStreamingEvents]);
 
-  // Load merchants on initial render
+  // Load merchants & Demo Customer Memory on initial render
   useEffect(() => {
     async function loadData() {
       try {
-        const data = await fetchMerchants();
-        setMerchants(data);
+        const [mList, demoCust] = await Promise.all([
+          fetchMerchants(),
+          fetchDemoCustomer(),
+        ]);
+        setMerchants(mList);
+        if (demoCust) {
+          setCustomerProfile(demoCust);
+        }
       } catch (err) {
-        console.error("Failed to load merchants:", err);
+        console.error("Failed to load initial data:", err);
       }
     }
     loadData();
   }, []);
+
+  const handleSendMessageRef = useRef<(text: string) => Promise<void>>(null as any);
+  handleSendMessageRef.current = handleSendMessage;
+
+  // Initialize Voice Manager callbacks
+  useEffect(() => {
+    voiceManager.init({
+      onTranscript: (transcript) => {
+        setLiveTranscript(transcript);
+      },
+      onAutoSubmit: (transcript) => {
+        setLiveTranscript("");
+        handleSendMessageRef.current?.(transcript);
+      },
+      onStateChange: (state) => {
+        setVoiceState(state);
+      },
+      onError: (err) => {
+        showToast(err, "error");
+      },
+    });
+  }, []);
+
+  const toggleVoiceMode = () => {
+    const newState = voiceManager.toggleVoiceMode();
+    setIsVoiceMode(newState);
+    if (newState) {
+      showToast("Voice Mode Active — Speak naturally!", "success");
+    } else {
+      voiceManager.stopSpeaking();
+      showToast("Voice Mode Deactivated", "success");
+    }
+  };
 
   // Initial welcome message on mount (Discovery Mode)
   useEffect(() => {
@@ -306,6 +359,11 @@ export default function ChatPage() {
           setOrderPaid(true);
           setActivePaymentLink(null);
           showToast("Payment confirmed!", "success");
+          
+          if (voiceManager.isVoiceMode() || isVoiceMode) {
+            voiceManager.speak(`Payment confirmed! ${selectedMerchant?.name || "The store"} has confirmed your order. Live driver tracking is now ready.`);
+          }
+
           setMessages((prev) => [
             ...prev,
             {
@@ -323,7 +381,7 @@ export default function ChatPage() {
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [activeOrderId, orderPaid, selectedMerchant]);
+  }, [activeOrderId, orderPaid, selectedMerchant, isVoiceMode]);
 
   const showToast = (msg: string, type: "success" | "error" = "success") => {
     setNotification({ msg, type });
@@ -342,12 +400,14 @@ export default function ChatPage() {
     setMessages((prev) => [...prev, userMsg]);
     setIsLoading(true);
     setLiveStreamingEvents([]);
+    voiceManager.notifyThinking();
 
     try {
       const response = await sendChatMessageStreaming(
         {
           merchant_id: selectedMerchant ? selectedMerchant.id : null,
           conversation_id: conversationId,
+          customer_id: customerProfile ? (customerProfile.id as any) : undefined,
           message: text,
         },
         (event: ReasoningEvent) => {
@@ -385,6 +445,11 @@ export default function ChatPage() {
         payment_link: response.payment_link,
       };
       setMessages((prev) => [...prev, assistantMsg]);
+
+      // Speak response aloud if Voice Mode is active
+      if (voiceManager.isVoiceMode() || isVoiceMode) {
+        voiceManager.speak(response.message);
+      }
 
       if (response.cart) {
         setCart({
@@ -786,12 +851,47 @@ export default function ChatPage() {
               </AnimatePresence>
             </div>
 
+            {/* Customer Memory Profile Badge */}
+            {customerProfile && (
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => setShowMemoryModal(true)}
+                className="flex items-center gap-1.5 rounded-xl bg-cyan-950/60 border border-cyan-500/40 px-2.5 py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-900/50 transition shadow-sm cursor-pointer"
+                title="Customer Memory Profile"
+              >
+                <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
+                <span className="hidden sm:inline font-semibold">{customerProfile.name.split(" ")[0]}</span>
+                <span className="text-[10px] text-cyan-300 bg-cyan-500/20 px-1.5 py-0.5 rounded font-mono">Memory</span>
+              </motion.button>
+            )}
+
+            {/* Ambient Voice Mode Toggle */}
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={toggleVoiceMode}
+              className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium transition shadow-sm cursor-pointer ${
+                isVoiceMode
+                  ? "bg-gradient-to-tr from-cyan-500/20 to-emerald-500/20 border-cyan-500 text-cyan-300 shadow-cyan-500/20 shadow-lg"
+                  : "bg-[#12121E] border-[#2A2A3E] text-zinc-300 hover:border-[#7C3AED]/40 hover:text-white"
+              }`}
+              title="Toggle Ambient Voice Assistant"
+            >
+              {isVoiceMode ? (
+                <Volume2 className="h-3.5 w-3.5 text-cyan-400 animate-pulse" />
+              ) : (
+                <Mic className="h-3.5 w-3.5 text-zinc-400" />
+              )}
+              <span className="hidden md:inline">{isVoiceMode ? "Voice ON" : "Voice"}</span>
+            </motion.button>
+
             {/* Agent Decisions Reasoning Panel Toggle */}
             <motion.button
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
               onClick={() => setShowReasoningPanel(true)}
-              className="flex items-center gap-1.5 rounded-xl bg-[#7C3AED]/10 border border-[#7C3AED]/30 px-2.5 py-1.5 text-xs font-medium text-[#A78BFA] hover:bg-[#7C3AED]/20 hover:text-white transition shadow-sm"
+              className="flex items-center gap-1.5 rounded-xl bg-[#7C3AED]/10 border border-[#7C3AED]/30 px-2.5 py-1.5 text-xs font-medium text-[#A78BFA] hover:bg-[#7C3AED]/20 hover:text-white transition shadow-sm cursor-pointer"
               title="Agent Decision Log"
             >
               <Brain className="h-3.5 w-3.5 text-[#7C3AED]" />
@@ -868,7 +968,7 @@ export default function ChatPage() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Chat Input Bar */}
+          {/* Chat Input Bar with Embedded Voice Controls */}
           <div className="border-t border-[#2A2A3E] bg-[#0A0A12]/70 p-3.5">
             <ChatInput
               onSendMessage={handleSendMessage}
@@ -876,6 +976,10 @@ export default function ChatPage() {
               suggestions={activeSuggestions}
               placeholder={activePlaceholder}
               onSuggestionClick={(s) => handleSendMessage(s.replace(/^[^\s]+ /, ""))}
+              isVoiceMode={isVoiceMode}
+              voiceState={voiceState}
+              onToggleVoice={toggleVoiceMode}
+              liveTranscript={liveTranscript}
             />
           </div>
         </section>
@@ -943,6 +1047,165 @@ export default function ChatPage() {
         )}
       </AnimatePresence>
 
+      {/* Customer Ambient Memory Profile Modal */}
+      <AnimatePresence>
+        {showMemoryModal && customerProfile && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"
+            onClick={() => setShowMemoryModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-lg rounded-3xl border border-cyan-500/30 bg-[#12121E] p-6 shadow-2xl backdrop-blur-2xl text-[#F0EEFF] space-y-4"
+            >
+              <div className="flex items-center justify-between border-b border-[#2A2A3E] pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/40">
+                    <Sparkles className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      {customerProfile.name}
+                      <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/80 px-2 py-0.5 rounded-full border border-cyan-500/40">
+                        Memory Active
+                      </span>
+                    </h3>
+                    <p className="text-xs text-zinc-400">{customerProfile.phone} • {customerProfile.order_count} Orders (₹{customerProfile.total_spent.toFixed(0)})</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowMemoryModal(false)}
+                  className="rounded-lg p-1.5 text-zinc-400 hover:text-white hover:bg-[#1E1E2E] transition cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Saved Delivery Addresses */}
+              <div className="space-y-2">
+                <span className="text-xs font-semibold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
+                  📍 Saved Delivery Locations
+                </span>
+                <div className="space-y-1.5">
+                  {customerProfile.saved_addresses.map((addr, idx) => (
+                    <div
+                      key={idx}
+                      className={`flex items-start justify-between rounded-xl p-2.5 text-xs border ${
+                        addr.is_default
+                          ? "bg-cyan-950/30 border-cyan-500/40 text-cyan-100"
+                          : "bg-[#1E1E2E]/60 border-[#2A2A3E] text-zinc-300"
+                      }`}
+                    >
+                      <div>
+                        <div className="font-semibold flex items-center gap-1.5">
+                          {addr.label}
+                          {addr.is_default && (
+                            <span className="text-[9px] font-mono bg-cyan-500/20 text-cyan-300 px-1.5 py-0.2 rounded">
+                              DEFAULT
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-zinc-400 mt-0.5">{addr.address}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Preferences & Dietary */}
+              {customerProfile.preferences && (
+                <div className="space-y-2">
+                  <span className="text-xs font-semibold text-purple-400 uppercase tracking-wider flex items-center gap-1.5">
+                    🥗 Dietary & Budget Preferences
+                  </span>
+                  <div className="flex flex-wrap gap-1.5 text-xs">
+                    {customerProfile.preferences.dietary?.map((d: string, i: number) => (
+                      <span key={i} className="px-2.5 py-1 rounded-lg bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 font-medium">
+                        🌱 {d}
+                      </span>
+                    ))}
+                    {customerProfile.preferences.preferred_spice && (
+                      <span className="px-2.5 py-1 rounded-lg bg-amber-950/60 border border-amber-500/30 text-amber-300 font-medium">
+                        🌶️ {customerProfile.preferences.preferred_spice} Spice
+                      </span>
+                    )}
+                    {customerProfile.preferences.max_typical_budget && (
+                      <span className="px-2.5 py-1 rounded-lg bg-purple-950/60 border border-purple-500/30 text-purple-300 font-medium">
+                        💰 Budget ₹{customerProfile.preferences.max_typical_budget}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Past Ratings & Favorite Merchants */}
+              {customerProfile.favorite_merchants && customerProfile.favorite_merchants.length > 0 && (
+                <div className="space-y-2">
+                  <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                    ⭐ Past Favorites & Ratings
+                  </span>
+                  <div className="space-y-1.5">
+                    {customerProfile.favorite_merchants.map((fav, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center justify-between rounded-xl bg-[#1E1E2E]/60 border border-[#2A2A3E] p-2.5 text-xs"
+                      >
+                        <div>
+                          <div className="font-semibold text-white">{fav.name}</div>
+                          <div className="text-[11px] text-zinc-400">Loved: {fav.last_item}</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-amber-400 font-mono font-bold">⭐ {fav.rating || 5}/5</span>
+                          <button
+                            onClick={() => {
+                              setShowMemoryModal(false);
+                              handleSendMessage(`Reorder my favorite ${fav.last_item} from ${fav.name}`);
+                            }}
+                            className="px-2 py-1 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-[10px] font-semibold hover:bg-cyan-500/30 transition cursor-pointer"
+                          >
+                            Reorder
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Voice Quick Action Prompt */}
+              <div className="pt-2 border-t border-[#2A2A3E]">
+                <button
+                  onClick={() => {
+                    setShowMemoryModal(false);
+                    toggleVoiceMode();
+                  }}
+                  className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-500 to-emerald-500 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-cyan-500/20 hover:opacity-95 transition cursor-pointer"
+                >
+                  <Volume2 className="h-4 w-4" />
+                  <span>Start Ambient Voice Assistant</span>
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Floating Ambient Voice Orb Widget (Desktop bottom-right) */}
+      <div className="fixed bottom-6 right-6 z-40 hidden xl:flex flex-col items-center">
+        <VoiceOrb
+          state={voiceState}
+          isActive={isVoiceMode}
+          onToggle={toggleVoiceMode}
+          size={72}
+        />
+      </div>
+
       {/* Real-Time Agent Reasoning & Decision Drawer */}
       <AgentReasoningPanel
         logs={reasoningLogs}
@@ -952,3 +1215,4 @@ export default function ChatPage() {
     </div>
   );
 }
+

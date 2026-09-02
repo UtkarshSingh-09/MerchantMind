@@ -10,10 +10,13 @@ import os
 # Add parent dir to path so we can import app
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import uuid
+
 from sqlalchemy import select
 from app.database import engine, async_session, Base
 from app.models.merchant import Merchant
 from app.models.product import Product
+from app.models.customer import Customer
 
 
 MERCHANTS_DATA = [
@@ -948,12 +951,68 @@ async def seed():
                     existing_p.description = p_dict.get("description")
                     existing_p.image_url = p_dict.get("image_url")
                     existing_p.tags = p_dict.get("tags")
-                    existing_p.schema_json = existing_p.to_schema_org()
+        # Seed Demo Customer with Ambient Memory Profile
+        stmt_cust = select(Customer).where(Customer.phone == "+919876543210")
+        res_cust = await session.execute(stmt_cust)
+        demo_cust = res_cust.scalar_one_or_none()
+
+        stmt_first_m = select(Merchant).limit(1)
+        res_first_m = await session.execute(stmt_first_m)
+        first_m = res_first_m.scalar_one_or_none()
+
+        if not demo_cust and first_m:
+            demo_cust = Customer(
+                id=uuid.uuid4(),
+                merchant_id=first_m.id,
+                name="Utkarsh Singh",
+                phone="+919876543210",
+                email="utkarsh@merchantmind.ai",
+                total_spent=1420.0,
+                order_count=4,
+                saved_addresses=[
+                    {
+                        "label": "Home",
+                        "address": "Flat 402, 100 Feet Road, Indiranagar, Bangalore - 560038",
+                        "lat": 12.9784,
+                        "lng": 77.6408,
+                        "is_default": True,
+                    },
+                    {
+                        "label": "Office",
+                        "address": "WeWork Galaxy, Residency Road, Shanthala Nagar, Bangalore - 560025",
+                        "lat": 12.9716,
+                        "lng": 77.5946,
+                        "is_default": False,
+                    },
+                ],
+                preferences={
+                    "dietary": ["Vegetarian"],
+                    "preferred_spice": "Medium",
+                    "max_typical_budget": 500,
+                    "favorite_cuisines": ["Chinese", "Artisan Bakery", "Specialty Coffee"],
+                },
+                favorite_merchants=[
+                    {
+                        "name": "Beijing Bites",
+                        "last_item": "Veg Manchurian",
+                        "rating": 5,
+                        "order_count": 2,
+                    },
+                    {
+                        "name": "Sweet Chariot",
+                        "last_item": "Belgian Chocolate Truffle Cake",
+                        "rating": 5,
+                        "order_count": 2,
+                    },
+                ],
+            )
+            session.add(demo_cust)
 
         await session.commit()
-        print(f"\n🎉 Bangalore 50-Merchant Seed Complete!")
+        print(f"\n🎉 Bangalore 50-Merchant & Memory Profile Seed Complete!")
         print(f"   • Total Merchants: {len(MERCHANTS_DATA)}")
         print(f"   • New Products Added: {total_seeded_products}")
+        print(f"   • Demo Customer Seeded: Utkarsh Singh (+919876543210) with Memory Profile")
         print(f"   • Neighborhoods covered: Koramangala, KR Puram, Marathahalli, Indiranagar,")
         print(f"     HSR, Whitefield, Jayanagar, Basavanagudi, Malleshwaram, Banashankari,")
         print(f"     Electronic City, Hebbal, Yelahanka, Frazer Town, Sarjapur, and more!")

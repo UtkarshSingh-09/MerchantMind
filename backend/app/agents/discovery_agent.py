@@ -26,7 +26,7 @@ from app.services.conversation_service import (
 )
 from app.services.budget_extractor import extract_structured_budget
 from app.services.audit_service import log_audit_event, AuditEventType
-from app.services.memory_service import build_optimized_context
+from app.services.memory_service import build_optimized_context, build_customer_profile_memory
 from app.schemas.chat import ProductRecommendation, CartItem, ChatResponse
 
 logger = logging.getLogger(__name__)
@@ -115,7 +115,11 @@ DISCOVERY_TOOLS = [
 ]
 
 
-def _build_discovery_prompt(city_merchants: list[dict[str, Any]], current_cart: dict[str, Any]) -> str:
+def _build_discovery_system_prompt(
+    city_merchants: list[dict[str, Any]],
+    current_cart: dict[str, Any],
+    customer_memory: str = "",
+) -> str:
     cart_items = current_cart.get("items", [])
     cart_total = current_cart.get("total", 0.0)
     budget_cfg = current_cart.get("budget") or {}
@@ -137,10 +141,13 @@ def _build_discovery_prompt(city_merchants: list[dict[str, Any]], current_cart: 
         for m in city_merchants[:20]
     ])
 
+    memory_section = f"\n\n{customer_memory}\n" if customer_memory else ""
+
     return f"""You are DiscoveryAgent in MerchantMind — the Autonomous City-Wide Shopping Concierge across Bangalore.
 Your mission is to help customers explore, discover, and compare products across ALL 48 registered Bangalore food stores and bakeries.
 Currency: INR (₹).
 
+{memory_section}
 CITY STORES DIRECTORY (Sample):
 {stores_text}
 
@@ -383,7 +390,8 @@ class DiscoveryAgent:
             logger.warning("Budget extraction error in discovery agent: %s", b_err)
 
         city_merchants = await get_all_merchants_summary(db)
-        system_prompt = _build_discovery_prompt(city_merchants, cart)
+        customer_mem = await build_customer_profile_memory(conversation.customer_id, db)
+        system_prompt = _build_discovery_system_prompt(city_merchants, cart, customer_memory=customer_mem)
 
         optimized_history = await build_optimized_context(conversation, max_recent=6)
 
@@ -545,7 +553,8 @@ class DiscoveryAgent:
             logger.warning("Budget extraction error in discovery agent: %s", b_err)
 
         city_merchants = await get_all_merchants_summary(db)
-        system_prompt = _build_discovery_prompt(city_merchants, cart)
+        customer_mem = await build_customer_profile_memory(conversation.customer_id, db)
+        system_prompt = _build_discovery_system_prompt(city_merchants, cart, customer_memory=customer_mem)
 
         optimized_history = await build_optimized_context(conversation, max_recent=6)
 

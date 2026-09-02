@@ -279,10 +279,11 @@ export default function ChatPage() {
   };
 
   const toggleVoiceMode = () => {
+    voiceManager.unlockAudio();
     const newState = voiceManager.toggleVoiceMode();
     setIsVoiceMode(newState);
     if (newState) {
-      showToast("Voice Mode Active — Speak naturally!", "success");
+      showToast("Voice Mode Active — Deepgram Flux Meena 🎙️", "success");
     } else {
       voiceManager.stopSpeaking();
       showToast("Voice Mode Deactivated", "success");

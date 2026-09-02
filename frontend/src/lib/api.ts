@@ -549,17 +549,19 @@ export async function fetchDeepgramVoiceAudio(text: string): Promise<Blob | null
     });
 
     if (!res.ok) {
+      console.warn(`[Deepgram TTS] Backend returned ${res.status}: ${res.statusText}`);
       return null;
     }
 
-    const contentType = res.headers.get("content-type") || "";
-    if (!contentType.includes("audio")) {
+    const blob = await res.blob();
+    if (!blob || blob.size < 50) {
+      console.warn("[Deepgram TTS] Received empty audio blob");
       return null;
     }
 
-    return await res.blob();
+    return blob;
   } catch (error) {
-    console.warn("Deepgram TTS fetch failed, will fallback:", error);
+    console.warn("[Deepgram TTS] Network fetch failed, will fallback:", error);
     return null;
   }
 }

@@ -330,8 +330,14 @@ class VoiceManager {
 
   private activeAudioElement: HTMLAudioElement | null = null;
 
+  public unlockAudio() {
+    if (typeof window !== "undefined" && !this.activeAudioElement) {
+      this.activeAudioElement = new Audio();
+    }
+  }
+
   /**
-   * Speaks the response aloud using Deepgram Aura TTS with graceful fallback to browser speech synthesis.
+   * Speaks the response aloud using Deepgram Flux TTS with graceful fallback to browser speech synthesis.
    */
   public async speak(text: string, onEnd?: () => void) {
     this.stopSpeaking();
@@ -344,21 +350,27 @@ class VoiceManager {
       return;
     }
 
-    // 1. Try Deepgram Studio Aura TTS first
+    // 1. Try Deepgram Studio Flux TTS first
     try {
       const { fetchDeepgramVoiceAudio } = await import("./api");
+      console.log("[VoiceManager] Requesting Deepgram Flux Meena audio for:", cleanText);
       const audioBlob = await fetchDeepgramVoiceAudio(cleanText);
 
       if (audioBlob && typeof window !== "undefined") {
         const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-        this.activeAudioElement = audio;
+
+        if (!this.activeAudioElement) {
+          this.activeAudioElement = new Audio();
+        }
+
+        const audio = this.activeAudioElement;
+        audio.src = audioUrl;
+        audio.load();
 
         this.setState("speaking");
 
         audio.onended = () => {
           URL.revokeObjectURL(audioUrl);
-          this.activeAudioElement = null;
           if (this.isVoiceModeEnabled) {
             this.startListening();
           } else {
@@ -368,17 +380,23 @@ class VoiceManager {
         };
 
         audio.onerror = (e) => {
-          console.warn("Deepgram Audio playback error, falling back to speech synthesis:", e);
+          console.warn("[VoiceManager] Deepgram Audio playback error, falling back to speech synthesis:", e);
           URL.revokeObjectURL(audioUrl);
-          this.activeAudioElement = null;
           this.fallbackSpeak(cleanText, onEnd);
         };
 
-        await audio.play();
-        return;
+        try {
+          await audio.play();
+          console.log("[VoiceManager] Playing Deepgram audio successfully 🎙️");
+          return;
+        } catch (playErr) {
+          console.warn("[VoiceManager] Audio play() failed:", playErr);
+          this.fallbackSpeak(cleanText, onEnd);
+          return;
+        }
       }
     } catch (dgErr) {
-      console.warn("Deepgram Aura TTS not available, using browser speech synthesis:", dgErr);
+      console.warn("[VoiceManager] Deepgram TTS not available, using browser speech synthesis:", dgErr);
     }
 
     // 2. Fallback to Enhanced Browser SpeechSynthesis

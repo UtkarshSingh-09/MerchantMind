@@ -273,28 +273,10 @@ export default function ChatPage() {
     }
     loadData();
   }, []);
-
-  const handleSendMessageRef = useRef<(text: string) => Promise<void>>(null as any);
-  handleSendMessageRef.current = handleSendMessage;
-
-  // Initialize Voice Manager callbacks
-  useEffect(() => {
-    voiceManager.init({
-      onTranscript: (transcript) => {
-        setLiveTranscript(transcript);
-      },
-      onAutoSubmit: (transcript) => {
-        setLiveTranscript("");
-        handleSendMessageRef.current?.(transcript);
-      },
-      onStateChange: (state) => {
-        setVoiceState(state);
-      },
-      onError: (err) => {
-        showToast(err, "error");
-      },
-    });
-  }, []);
+  const showToast = (msg: string, type: "success" | "error" = "success") => {
+    setNotification({ msg, type });
+    setTimeout(() => setNotification(null), 3500);
+  };
 
   const toggleVoiceMode = () => {
     const newState = voiceManager.toggleVoiceMode();
@@ -306,17 +288,6 @@ export default function ChatPage() {
       showToast("Voice Mode Deactivated", "success");
     }
   };
-
-  // Initial welcome message on mount (Discovery Mode)
-  useEffect(() => {
-    setMessages([
-      {
-        role: "assistant",
-        content: `Welcome to **MerchantMind**!\n\nTell me what you're looking for and your budget (e.g. *"Birthday cake under ₹700"* or *"Weekly groceries"*). I'll scan live catalogs across all stores and guide you to seamless checkout with Razorpay.`,
-        timestamp: new Date().toISOString(),
-      },
-    ]);
-  }, []);
 
   const handleManualStoreSelect = (m: Merchant | null) => {
     setSelectedMerchant(m);
@@ -347,6 +318,17 @@ export default function ChatPage() {
       showToast("All Stores Mode");
     }
   };
+
+  // Initial welcome message on mount (Discovery Mode)
+  useEffect(() => {
+    setMessages([
+      {
+        role: "assistant",
+        content: `Welcome to **MerchantMind**!\n\nTell me what you're looking for and your budget (e.g. *"Birthday cake under ₹700"* or *"Weekly groceries"*). I'll scan live catalogs across all stores and guide you to seamless checkout with Razorpay.`,
+        timestamp: new Date().toISOString(),
+      },
+    ]);
+  }, []);
 
   // Poll order status if active order is pending
   useEffect(() => {
@@ -383,13 +365,8 @@ export default function ChatPage() {
     return () => clearInterval(interval);
   }, [activeOrderId, orderPaid, selectedMerchant, isVoiceMode]);
 
-  const showToast = (msg: string, type: "success" | "error" = "success") => {
-    setNotification({ msg, type });
-    setTimeout(() => setNotification(null), 3500);
-  };
-
   // Handle sending chat message with real-time ReAct SSE streaming
-  const handleSendMessage = async (text: string) => {
+  async function handleSendMessage(text: string) {
     if (isLoading) return;
 
     const userMsg: MessageProps = {
@@ -476,7 +453,26 @@ export default function ChatPage() {
       setIsLoading(false);
       setLiveStreamingEvents([]);
     }
-  };
+  }
+
+  // Initialize Voice Manager callbacks
+  useEffect(() => {
+    voiceManager.init({
+      onTranscript: (transcript) => {
+        setLiveTranscript(transcript);
+      },
+      onAutoSubmit: (transcript) => {
+        setLiveTranscript("");
+        handleSendMessage(transcript);
+      },
+      onStateChange: (state) => {
+        setVoiceState(state);
+      },
+      onError: (err) => {
+        showToast(err, "error");
+      },
+    });
+  });
 
   // Handle Add to Cart from product cards
   const handleAddToCart = async (product: ProductRecommendation) => {

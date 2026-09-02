@@ -41,10 +41,12 @@ async def get_upsell_suggestions(
 ) -> list[dict[str, Any]]:
     """Generate smart, budget-bounded upsell and cross-sell suggestions based on cart contents."""
     if not cart_items:
-        # If cart is empty, suggest bestsellers/popular items
-        stmt = select(Product).where(
-            and_(Product.merchant_id == merchant_id, Product.in_stock == True)
-        ).order_by(Product.price.asc()).limit(limit)
+        # If cart is empty, suggest bestsellers/popular items within budget
+        conds = [Product.merchant_id == merchant_id, Product.in_stock == True]
+        if budget_remaining is not None:
+            conds.append(Product.price <= budget_remaining)
+
+        stmt = select(Product).where(and_(*conds)).order_by(Product.price.asc()).limit(limit)
         res = await db.execute(stmt)
         products = list(res.scalars().all())
         return [

@@ -11,42 +11,68 @@ from app.models.merchant import Merchant
 
 async def get_or_create_conversation(
     db: AsyncSession,
-    merchant_id: uuid.UUID,
+    merchant_id: uuid.UUID | None = None,
     conversation_id: uuid.UUID | None = None,
     channel: str = "web",
     customer_phone: str | None = None,
 ) -> Conversation:
-    """Fetch existing conversation or create a new one."""
+    """Fetch existing conversation or create a new one.
+
+    If merchant_id is None, creates a Discovery Mode conversation.
+    """
     if conversation_id:
-        stmt = select(Conversation).where(
-            Conversation.id == conversation_id,
-            Conversation.merchant_id == merchant_id,
-        )
+        stmt = select(Conversation).where(Conversation.id == conversation_id)
         result = await db.execute(stmt)
         conv = result.scalar_one_or_none()
         if conv:
+            if merchant_id and conv.merchant_id != merchant_id:
+                conv.merchant_id = merchant_id
             return conv
 
-    # Verify merchant exists
-    stmt_m = select(Merchant).where(Merchant.id == merchant_id)
-    res_m = await db.execute(stmt_m)
-    merchant = res_m.scalar_one_or_none()
-    if not merchant:
-        raise ValueError(f"Merchant {merchant_id} not found")
+    # Verify merchant exists (if provided)
+    if merchant_id:
+        stmt_m = select(Merchant).where(Merchant.id == merchant_id)
+        res_m = await db.execute(stmt_m)
+        merchant = res_m.scalar_one_or_none()
+        if not merchant:
+            raise ValueError(f"Merchant {merchant_id} not found")
 
     new_conv = Conversation(
         id=conversation_id or uuid.uuid4(),
-        merchant_id=merchant_id,
+        merchant_id=merchant_id,  # None for Discovery Mode
         channel=channel,
         messages=[],
         cart={"items": [], "total": 0.0},
         agent_reasoning=[],
+        handoff_context={},
         status="active",
     )
     db.add(new_conv)
     await db.flush()
     await db.refresh(new_conv)
     return new_conv
+
+
+async def lock_conversation_to_merchant(
+    db: AsyncSession,
+    conversation: Conversation,
+    merchant_id: uuid.UUID,
+    handoff_data: dict[str, Any] | None = None,
+) -> Conversation:
+    """Lock a discovery conversation to a specific merchant once user picks one.
+
+    This transitions the conversation from Discovery Mode to Shopping Mode.
+    """
+    stmt = select(Merchant).where(Merchant.id == merchant_id)
+    res = await db.execute(stmt)
+    merchant = res.scalar_one_or_none()
+    if not merchant:
+        raise ValueError(f"Merchant {merchant_id} not found")
+
+    conversation.merchant_id = merchant_id
+    if handoff_data:
+        conversation.handoff_context = handoff_data
+    return conversation
 
 
 async def get_conversation_by_id(
@@ -107,3 +133,14 @@ def add_agent_reasoning(
         }
     )
     conversation.agent_reasoning = reasonings
+
+
+def set_handoff_context(
+    conversation: Conversation,
+    handoff_data: dict[str, Any],
+) -> None:
+    """Store agent handoff context."""
+    existing = dict(conversation.handoff_context or {})
+    existing.update(handoff_data)
+    conversation.handoff_context = existing
+

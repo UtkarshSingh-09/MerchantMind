@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 
 class ChatRequest(BaseModel):
-    merchant_id: uuid.UUID
+    merchant_id: uuid.UUID | None = None  # None = Discovery Mode (cross-merchant)
     conversation_id: uuid.UUID | None = None
     message: str
     customer_phone: str | None = None
@@ -36,12 +36,15 @@ class CartUpdatePayload(BaseModel):
 
 class ChatResponse(BaseModel):
     conversation_id: uuid.UUID
+    merchant_id: uuid.UUID | None = None
+    merchant_name: str | None = None
     message: str
     recommendations: list[ProductRecommendation] | None = None
     cart: list[CartItem] | None = None
     cart_total: float | None = None
     action: str | None = None  # "recommend", "cart_update", "checkout", "chat"
     payment_link: str | None = None
+    agent_reasoning: list[dict[str, Any]] | None = None
 
 
 class MessageItem(BaseModel):
@@ -53,7 +56,7 @@ class MessageItem(BaseModel):
 
 class ConversationDetailResponse(BaseModel):
     id: uuid.UUID
-    merchant_id: uuid.UUID
+    merchant_id: uuid.UUID | None = None
     channel: str
     status: str
     messages: list[dict[str, Any]]

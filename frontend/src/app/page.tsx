@@ -3,14 +3,25 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Lock, X, ChevronDown, Sparkles, ArrowRight, ShieldCheck, Zap, Database } from "lucide-react";
+import { Lock, X, ChevronDown } from "lucide-react";
 import { ParticleConstellation } from "@/components/ParticleConstellation";
+import { CommerceDataChaos } from "@/components/CommerceDataChaos";
+import { DeepCosmosIsolation } from "@/components/DeepCosmosIsolation";
+import { ConvergenceSingularity } from "@/components/ConvergenceSingularity";
+import { TerminalDeploymentCTA } from "@/components/TerminalDeploymentCTA";
+import { LightRayWarp } from "@/components/ui/light-ray-warp";
 import { LiquidMetalButton } from "@/components/ui/liquid-metal-button";
 
 export default function HomePage() {
   const router = useRouter();
   const [showVaultModal, setShowVaultModal] = useState(false);
+  const [isWarping, setIsWarping] = useState(false);
   const [scrollY, setScrollY] = useState(0);
+
+  const handleConnectVault = () => {
+    setShowVaultModal(false);
+    setIsWarping(true);
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -20,26 +31,38 @@ export default function HomePage() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Calculate scroll progress for opacity fades
+  // Calculate scroll progress for multi-chapter opacity transitions
   const windowH = typeof window !== "undefined" ? window.innerHeight : 800;
   
-  // Chapter 1: Hero Monogram (0 to 0.45 windowH)
-  const heroOpacity = Math.max(0, 1 - scrollY / (windowH * 0.4));
+  // Chapter 1: Hero View (0 to 0.45 * windowH)
+  const heroOpacity = Math.max(0, 1 - scrollY / (windowH * 0.45));
   
-  // Chapter 2: "Introducing MerchantMind" (0.35 to 1.35 windowH)
-  const introProgress = (scrollY - windowH * 0.35) / (windowH * 0.4);
-  const introFadeOut = (scrollY - windowH * 1.1) / (windowH * 0.35);
-  const introOpacity =
-    scrollY < windowH * 1.1
-      ? Math.min(Math.max(introProgress, 0), 1)
-      : Math.max(0, 1 - introFadeOut);
+  // Chapter 2: Radar Tunnel View (0.35 to 1.15 * windowH)
+  const introFadeIn = Math.min(Math.max((scrollY - windowH * 0.35) / (windowH * 0.3), 0), 1);
+  const introFadeOut = Math.max(0, 1 - Math.max(0, scrollY - windowH * 0.85) / (windowH * 0.3));
+  const introOpacity = introFadeIn * introFadeOut;
 
-  // Chapter 3: Project Manifesto & Pillars (1.3 windowH and beyond)
-  const manifestoProgress = (scrollY - windowH * 1.3) / (windowH * 0.45);
-  const manifestoOpacity = Math.min(Math.max(manifestoProgress, 0), 1);
+  // Chapter 3: Commerce Data Chaos (1.05 to 2.1 * windowH)
+  const chaosFadeIn = Math.min(Math.max((scrollY - windowH * 1.05) / (windowH * 0.3), 0), 1);
+  const chaosFadeOut = Math.max(0, 1 - Math.max(0, scrollY - windowH * 1.75) / (windowH * 0.3));
+  const chaosOpacity = chaosFadeIn * chaosFadeOut;
+
+  // Chapter 4: Deep Cosmos Isolation (1.85 to 3.2 * windowH)
+  const isolationFadeIn = Math.min(Math.max((scrollY - windowH * 1.85) / (windowH * 0.35), 0), 1);
+  const isolationFadeOut = Math.max(0, 1 - Math.max(0, scrollY - windowH * 2.85) / (windowH * 0.35));
+  const isolationOpacity = isolationFadeIn * isolationFadeOut;
+
+  // Chapter 5: Convergence Singularity (2.95 to 4.4 * windowH)
+  const convergenceFadeIn = Math.min(Math.max((scrollY - windowH * 2.95) / (windowH * 0.35), 0), 1);
+  const convergenceFadeOut = Math.max(0, 1 - Math.max(0, scrollY - windowH * 4.15) / (windowH * 0.35));
+  const convergenceOpacity = convergenceFadeIn * convergenceFadeOut;
+
+  // Chapter 6: Terminal Deployment CTA (4.2 to 6.6 * windowH)
+  const terminalFadeIn = Math.min(Math.max((scrollY - windowH * 4.25) / (windowH * 0.35), 0), 1);
+  const terminalOpacity = terminalFadeIn;
 
   return (
-    <div className="relative min-h-[320vh] bg-[#000000] text-[#e2e2e2] selection:bg-[#3395FF] selection:text-white overflow-x-hidden">
+    <div className="relative min-h-[660vh] bg-[#000000] text-[#e2e2e2] selection:bg-[#3395FF] selection:text-white overflow-x-hidden">
       {/* 3D WebGL Particle Universe: Expands Monogram & Reveals Multi-Node Network */}
       <ParticleConstellation />
 
@@ -81,15 +104,12 @@ export default function HomePage() {
             </a>
           </nav>
 
-          {/* Action CTA */}
+          {/* Action CTA with Liquid Metal Design */}
           <div className="flex items-center gap-4">
-            <button
-              onClick={() => setShowVaultModal(true)}
-              className="liquid-btn text-[#000000] font-semibold text-xs md:text-sm px-4 py-2 rounded-lg cursor-pointer flex items-center gap-1.5"
-            >
-              <Lock className="w-3.5 h-3.5" />
-              <span>Connect Vault</span>
-            </button>
+            <LiquidMetalButton
+              label="Connect Vault"
+              onClick={handleConnectVault}
+            />
           </div>
         </div>
       </header>
@@ -101,131 +121,88 @@ export default function HomePage() {
         className="fixed inset-0 z-10 flex flex-col items-center justify-center px-6 text-center pointer-events-none transition-opacity duration-150"
         style={{
           opacity: heroOpacity,
-          display: heroOpacity <= 0 ? "none" : "flex",
         }}
       >
-        <div className="max-w-4xl mx-auto flex flex-col items-center">
-          {/* Editorial Headline */}
-          <h1 className="font-editorial text-5xl sm:text-7xl lg:text-[84px] leading-[1.05] tracking-tight text-white max-w-4xl drop-shadow-2xl">
-            Step into the world of{" "}
-            <span className="italic text-[#a5c8ff]">agentic payments.</span>
-          </h1>
+        {/* Subtle Radial Atmosphere Behind Text */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-radial from-[#3395FF]/10 via-transparent to-transparent blur-[120px] pointer-events-none" />
 
-          {/* Narrative Subhead */}
-          <p className="mt-8 text-base sm:text-lg text-[#94A3B8] max-w-2xl font-light leading-relaxed">
-            For years, digital storefronts built static filters and manual search.
-            But they existed in isolation. What if one model could
-            understand catalogs, intent, upselling, and payments as a whole?
-          </p>
+        {/* Supertitle */}
+        <div className="inline-flex items-center gap-2 font-mono text-[11px] sm:text-[12px] tracking-[0.3em] uppercase text-[#3395FF] mb-6 font-medium px-3.5 py-1.5 rounded-full bg-[#3395FF]/10 border border-[#3395FF]/30 backdrop-blur-md drop-shadow-[0_0_12px_rgba(51,149,255,0.3)]">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#3395FF] animate-pulse" />
+          <span>AUTONOMOUS AGENTIC COMMERCE</span>
         </div>
 
-        {/* Scroll cue */}
-        <div className="absolute bottom-8 flex flex-col items-center gap-2 opacity-60 animate-bounce">
-          <span className="text-[10px] font-mono tracking-widest text-[#94A3B8] uppercase">
-            Scroll to enter
-          </span>
-          <ChevronDown className="w-4 h-4 text-[#00C0F9]" />
+        {/* Hero Title */}
+        <h1 className="font-editorial text-5xl sm:text-7xl lg:text-[88px] leading-[1.02] tracking-tight text-white max-w-5xl mb-8 drop-shadow-[0_4px_30px_rgba(0,0,0,0.8)]">
+          Step into the world of <br />
+          <span className="italic text-[#a5c8ff]">agentic payments.</span>
+        </h1>
+
+        {/* Subtitle */}
+        <p className="text-base sm:text-lg text-[#CBD5E1] font-normal max-w-xl mx-auto leading-relaxed text-contrast-shadow">
+          One continuous mind for catalog discovery, intelligent upsell reasoning,
+          and instant Razorpay settlement.
+        </p>
+
+        {/* Scroll Indicator */}
+        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 font-mono text-[10px] tracking-widest text-[#94A3B8] uppercase">
+          <span>SCROLL TO EXPLORE ARCHITECTURE</span>
+          <div className="w-[1px] h-8 bg-gradient-to-b from-[#3395FF] to-transparent animate-pulse" />
         </div>
       </div>
 
       {/* ========================================================================= */}
-      {/* CHAPTER 2: RADAR TUNNEL VIEW ("Introducing MerchantMind")                 */}
+      {/* CHAPTER 2: RADAR NETWORK VIEW ("Multi-Node Telemetry")                   */}
       {/* ========================================================================= */}
       <div
-        className="fixed inset-0 z-10 flex flex-col items-center justify-center px-6 text-center pointer-events-none transition-opacity duration-200"
+        className="fixed inset-0 z-10 flex flex-col items-center justify-center px-6 text-center pointer-events-none transition-opacity duration-150"
         style={{
           opacity: introOpacity,
-          display: introOpacity <= 0 ? "none" : "flex",
         }}
       >
-        <div className="max-w-4xl mx-auto flex flex-col items-center">
-          <h2 className="font-editorial text-5xl sm:text-7xl lg:text-[84px] leading-[1.05] tracking-tight text-white max-w-3xl drop-shadow-[0_4px_30px_rgba(0,0,0,1)]">
-            Introducing <span className="italic text-[#3395FF]">MerchantMind</span>
-          </h2>
-          <div className="mt-6 flex items-center gap-2 text-xs font-mono tracking-widest uppercase text-[#94A3B8]/80">
-            <span>Keep scrolling to explore</span>
-            <ChevronDown className="w-3.5 h-3.5 text-[#00C0F9] animate-pulse" />
+        <div className="max-w-4xl mx-auto">
+          <div className="font-mono text-[11px] tracking-[0.25em] uppercase text-[#00C0F9] mb-4">
+            NETWORK TOPOLOGY // MULTI-NODE
           </div>
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* CHAPTER 3: THE PROJECT MANIFESTO & CAPABILITIES (Scroll Stage 3)           */}
-      {/* ========================================================================= */}
-      <div
-        className="fixed inset-0 z-10 flex flex-col items-center justify-center px-6 text-center pointer-events-none transition-opacity duration-200"
-        style={{
-          opacity: manifestoOpacity,
-          display: manifestoOpacity <= 0 ? "none" : "flex",
-        }}
-      >
-        <div className="max-w-4xl mx-auto flex flex-col items-center pointer-events-auto">
-          {/* Monospace Supertitle */}
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#3395FF]/10 border border-[#3395FF]/30 text-[#00C0F9] font-mono text-[11px] tracking-[0.25em] uppercase mb-5">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Autonomous Agentic Commerce</span>
-          </div>
-
-          {/* Project Core Editorial Sentence */}
-          <h2 className="font-editorial text-4xl sm:text-6xl lg:text-[68px] leading-[1.1] tracking-tight text-white max-w-3xl drop-shadow-[0_8px_30px_rgba(0,0,0,1)]">
-            One AI model to understand{" "}
-            <span className="italic text-[#3395FF]">catalogs, intent,</span>{" "}
-            and{" "}
-            <span className="italic text-[#00C0F9]">instant checkout.</span>
+          <h2 className="font-editorial text-4xl sm:text-6xl text-white mb-6 text-contrast-shadow">
+            Autonomous commerce across every node.
           </h2>
-
-          {/* Concise Project Description */}
-          <p className="mt-6 text-base sm:text-lg text-[#94A3B8] max-w-2xl font-light leading-relaxed drop-shadow-md">
-            MerchantMind dynamically analyzes inventory, enforces strict budget guardrails,
-            and turns natural customer conversations into instant Razorpay payment orders.
+          <p className="text-base sm:text-lg text-[#CBD5E1] font-normal max-w-2xl mx-auto text-contrast-shadow">
+            From search indexing to live cart synthesis and merchant payment routes.
           </p>
-
-          {/* 4 Feature Telemetry Badges */}
-          <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3 w-full max-w-3xl">
-            <div className="p-3.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-left hover:border-[#3395FF]/40 transition">
-              <div className="text-[10px] font-mono text-[#00C0F9] uppercase tracking-wider">01 // Intent</div>
-              <div className="text-xs font-semibold text-white mt-1">Natural Shopping</div>
-              <div className="text-[11px] text-[#94A3B8] mt-0.5 font-light">Dietary & taste reasoning</div>
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-left hover:border-[#3395FF]/40 transition">
-              <div className="text-[10px] font-mono text-[#3395FF] uppercase tracking-wider">02 // Guardrail</div>
-              <div className="text-xs font-semibold text-white mt-1">Budget Bounded</div>
-              <div className="text-[11px] text-[#94A3B8] mt-0.5 font-light">100% hard limit safety</div>
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-left hover:border-[#3395FF]/40 transition">
-              <div className="text-[10px] font-mono text-[#00C0F9] uppercase tracking-wider">03 // Growth</div>
-              <div className="text-xs font-semibold text-white mt-1">Context Upsell</div>
-              <div className="text-[11px] text-[#94A3B8] mt-0.5 font-light">+35% AOV uplift</div>
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-left hover:border-[#3395FF]/40 transition">
-              <div className="text-[10px] font-mono text-emerald-400 uppercase tracking-wider">04 // Settlement</div>
-              <div className="text-xs font-semibold text-white mt-1">1-Click Razorpay</div>
-              <div className="text-[11px] text-[#94A3B8] mt-0.5 font-light">Instant order links</div>
-            </div>
-          </div>
-
-          {/* Action CTAs */}
-          <div className="mt-8 flex flex-col sm:flex-row items-center gap-4">
-            <Link
-              href="/chat"
-              className="liquid-btn text-[#000000] font-semibold text-sm px-6 py-3 rounded-xl flex items-center gap-2 cursor-pointer shadow-lg shadow-[#3395FF]/20 hover:scale-[1.02] transition"
-            >
-              <span>Try Conversational Checkout</span>
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-
-            <button
-              onClick={() => setShowVaultModal(true)}
-              className="px-5 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-xs sm:text-sm text-white font-mono uppercase tracking-wider transition"
-            >
-              Connect Vault
-            </button>
-          </div>
         </div>
       </div>
+
+      {/* ========================================================================= */}
+      {/* CHAPTER 3: COMMERCE DATA CHAOS ("Every catalog. Every craving...")       */}
+      {/* ========================================================================= */}
+      <CommerceDataChaos opacity={chaosOpacity} />
+
+      {/* ========================================================================= */}
+      {/* CHAPTER 4: DEEP COSMOS ISOLATION ("The Fragmentation / Isolated Silos")  */}
+      {/* ========================================================================= */}
+      <DeepCosmosIsolation opacity={isolationOpacity} />
+
+      {/* ========================================================================= */}
+      {/* CHAPTER 5: CONVERGENCE SINGULARITY ("What if one model...")              */}
+      {/* ========================================================================= */}
+      <ConvergenceSingularity opacity={convergenceOpacity} />
+
+      {/* ========================================================================= */}
+      {/* CHAPTER 6: TERMINAL DEPLOYMENT CTA ("Step into the future...")           */}
+      {/* ========================================================================= */}
+      <TerminalDeploymentCTA
+        opacity={terminalOpacity}
+        onOpenVaultModal={handleConnectVault}
+      />
+
+      {/* ========================================================================= */}
+      {/* CINEMATIC LIGHT RAY WARP TRANSITION TO /CHAT                             */}
+      {/* ========================================================================= */}
+      <LightRayWarp
+        active={isWarping}
+        destination="/chat"
+      />
 
       {/* ========================================================================= */}
       {/* CONNECT VAULT APERTURE FLASH MODAL                                        */}
@@ -236,7 +213,7 @@ export default function HomePage() {
             {/* Close Button */}
             <button
               onClick={() => setShowVaultModal(false)}
-              className="absolute top-4 right-4 text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition cursor-pointer"
+              className="absolute top-4 right-4 text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition"
             >
               <X className="w-5 h-5" />
             </button>
@@ -264,14 +241,11 @@ export default function HomePage() {
             <div className="mt-8 flex flex-col gap-3">
               <LiquidMetalButton
                 label="Launch Live Demo Store → (Takes 30 sec)"
-                onClick={() => {
-                  setShowVaultModal(false);
-                  router.push("/chat");
-                }}
+                onClick={handleConnectVault}
               />
               <button
                 onClick={() => setShowVaultModal(false)}
-                className="text-xs text-zinc-400 hover:text-white transition py-2 cursor-pointer"
+                className="text-xs text-zinc-400 hover:text-white transition py-2"
               >
                 Close and return to network overview
               </button>

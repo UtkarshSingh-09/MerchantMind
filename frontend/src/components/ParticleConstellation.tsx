@@ -75,8 +75,8 @@ export function ParticleConstellation() {
         i % 3 === 0
           ? colors.electricBlue
           : i % 3 === 1
-          ? colors.silver
-          : colors.cyan;
+            ? colors.silver
+            : colors.cyan;
       heroColors[i * 3] = mixedColor.r;
       heroColors[i * 3 + 1] = mixedColor.g;
       heroColors[i * 3 + 2] = mixedColor.b;
@@ -155,8 +155,8 @@ export function ParticleConstellation() {
           i % 3 === 0
             ? colors.cyan
             : i % 3 === 1
-            ? colors.electricBlue
-            : colors.white,
+              ? colors.electricBlue
+              : colors.white,
         transparent: true,
         opacity: 0.16 + (1 - i / 12) * 0.25,
       });
@@ -221,7 +221,45 @@ export function ParticleConstellation() {
     radarMainGroup.add(interactiveParticles);
 
     // =========================================================================
-    // 3. AMBIENT STARFIELD (6,000 Stars)
+    // 3. CHAPTER 4: THREE 3D VOLUMETRIC ISOLATED SILOS (Left-Stage Point Clouds)
+    // =========================================================================
+    const isolationGroup = new THREE.Group();
+    scene.add(isolationGroup);
+    isolationGroup.position.set(-360, 0, 0);
+
+    // Silo 1: DISCOVERY (Rotating Icosahedron + Orbit Ring)
+    const silo1 = new THREE.Group();
+    silo1.position.set(-60, 280, 0);
+    const silo1Geom = new THREE.IcosahedronGeometry(85, 4);
+    const silo1Cloud = createParticleCloud(silo1Geom, new THREE.Color(0xf43f5e), 1.6, 0.9);
+    silo1.add(silo1Cloud);
+    const ring1Geom = new THREE.TorusGeometry(120, 2, 16, 64);
+    const ring1Cloud = createParticleCloud(ring1Geom, colors.silver, 1.2, 0.45);
+    ring1Cloud.rotation.x = Math.PI / 3;
+    silo1.add(ring1Cloud);
+    isolationGroup.add(silo1);
+
+    // Silo 2: REVENUE ENGINE (Rotating Torus + Concentrated Core)
+    const silo2 = new THREE.Group();
+    silo2.position.set(60, 0, 0);
+    const silo2Geom = new THREE.TorusGeometry(80, 28, 20, 70);
+    const silo2Cloud = createParticleCloud(silo2Geom, colors.electricBlue, 1.8, 0.95);
+    silo2.add(silo2Cloud);
+    const silo2CoreGeom = new THREE.SphereGeometry(30, 16, 16);
+    const silo2Core = createParticleCloud(silo2CoreGeom, colors.cyan, 2.0, 0.9);
+    silo2.add(silo2Core);
+    isolationGroup.add(silo2);
+
+    // Silo 3: SETTLEMENT (Rotating Cylinder Monolith)
+    const silo3 = new THREE.Group();
+    silo3.position.set(-40, -280, 0);
+    const silo3Geom = new THREE.CylinderGeometry(75, 75, 150, 32, 12, true);
+    const silo3Cloud = createParticleCloud(silo3Geom, colors.cyan, 1.6, 0.85);
+    silo3.add(silo3Cloud);
+    isolationGroup.add(silo3);
+
+    // =========================================================================
+    // 4. AMBIENT STARFIELD (6,000 Stars with Hyperspace Warp capability)
     // =========================================================================
     const starGeom = new THREE.BufferGeometry();
     const starPositions: number[] = [];
@@ -240,7 +278,7 @@ export function ParticleConstellation() {
     scene.add(stars);
 
     // =========================================================================
-    // 4. INTERACTION & SCROLL ANIMATION LOOP
+    // 6. INTERACTION & CONTINUOUS MULTI-CHAPTER SCROLL ANIMATION LOOP
     // =========================================================================
     let mouseX = 0,
       mouseY = 0;
@@ -267,59 +305,107 @@ export function ParticleConstellation() {
       animationFrameId = requestAnimationFrame(animate);
       const time = t * 0.001;
 
-      // Total scroll range mapping
+      // Scroll mapping across chapters:
+      // Chapter 1: 0 - 0.45 * windowH
+      // Chapter 2: 0.35 - 1.2 * windowH
+      // Chapter 3: 1.1 - 2.0 * windowH
+      // Chapter 4: 1.85 - 3.2 * windowH
+      // Chapter 4 -> 5 Convergence Warp: 2.6 - 3.3 * windowH
+      // Chapter 5: 3.1 - 5.0 * windowH
       const windowH = typeof window !== "undefined" ? window.innerHeight : 800;
-      const totalScrollRange = windowH * 2.2;
-      const scrollRatio = Math.min(scrollY / totalScrollRange, 1.2);
+      const ch1Progress = Math.min(scrollY / (windowH * 0.45), 1.0);
+      const ch2Progress = Math.min(Math.max((scrollY - windowH * 0.3) / (windowH * 0.8), 0), 1.0);
+      const ch3Progress = Math.min(Math.max((scrollY - windowH * 1.1) / (windowH * 0.8), 0), 1.0);
+      const ch4Progress = Math.min(Math.max((scrollY - windowH * 1.85) / (windowH * 0.4), 0), 1.0);
+      const ch4To5Warp = Math.min(Math.max((scrollY - windowH * 2.6) / (windowH * 0.6), 0), 1.0);
 
-      // Smooth Camera Parallax
-      camera.position.x += (targetX * 3 - camera.position.x) * 0.05;
-      camera.position.y += (-targetY * 3 - camera.position.y) * 0.05;
+      // Camera Positioning: Smooth, gentle gliding with high damping
+      const cameraPanX = (1.0 - ch4To5Warp) * ch4Progress * 160;
+      const targetCamZ = 1200 - ch2Progress * 200 - ch3Progress * 200 - ch4Progress * 150 - ch4To5Warp * 50;
+      camera.position.z += (targetCamZ - camera.position.z) * 0.035;
+      camera.position.x += (targetX * 2.2 + cameraPanX - camera.position.x) * 0.03;
+      camera.position.y += (-targetY * 2.2 - camera.position.y) * 0.03;
       camera.lookAt(scene.position);
 
-      // Hero Sphere Expansion: expands "big, big, big, big, big" & disperses
-      const heroProgress = Math.min(scrollY / (windowH * 0.5), 1.0);
-      const heroScale = 1.0 + Math.pow(heroProgress * 3.2, 2.5);
+      // Hero Sphere Expansion (Chapter 1): Slow, majestic orbit
+      const heroScale = 1.0 + Math.pow(ch1Progress * 2.6, 2.2);
       heroGroup.scale.set(heroScale, heroScale, heroScale);
-      heroGroup.rotation.y = time * 0.08;
-      heroGroup.rotation.x = time * 0.04;
+      heroGroup.rotation.y = time * 0.025;
+      heroGroup.rotation.x = time * 0.012;
 
-      if (heroProgress < 0.25) {
+      if (ch1Progress < 0.7) {
         heroMaterial.opacity = 0.85;
       } else {
-        heroMaterial.opacity = Math.max(0, 0.85 * (1.0 - (heroProgress - 0.25) / 0.5));
+        heroMaterial.opacity = Math.max(0, 0.85 * (1.0 - (ch1Progress - 0.7) / 0.3));
       }
 
-      // Radar Tunnel & Monoliths reveal as hero sphere opens and travels forward
+      // Radar Tunnel (Chapter 2 & 3 Expansion)
       if (scrollY < windowH * 0.15) {
         radarMainGroup.visible = false;
       } else {
         radarMainGroup.visible = true;
-        const radarProgress = Math.min(Math.max((scrollY - windowH * 0.15) / (windowH * 0.85), 0), 1.0);
-        const deepProgress = Math.max(0, (scrollY - windowH * 1.2) / (windowH * 1.0));
+        const ch3Zoom = Math.min(Math.max((scrollY - windowH * 1.45) / (windowH * 0.65), 0), 1.0);
+        const radarExpansion = 0.35 + ch2Progress * 0.65 + Math.pow(ch3Zoom * 2.2, 2.0);
+        const radarZ = -500 + ch2Progress * 500 + Math.pow(ch3Zoom, 1.5) * 1200;
         
-        // Moves from z: -600 to 0 (Chapter 2) to +200 (Chapter 3 deep flight)
-        radarMainGroup.position.z = -600 + radarProgress * 600 + deepProgress * 200;
-        const radarScale = 0.35 + radarProgress * 0.65 + deepProgress * 0.15;
-        radarMainGroup.scale.set(radarScale, radarScale, radarScale);
+        radarMainGroup.position.z = radarZ;
+        radarMainGroup.scale.set(radarExpansion, radarExpansion, radarExpansion);
+        radarMainGroup.rotation.x = ch3Progress * 0.15 + ch3Zoom * 0.15;
+        
+        const radarFade = Math.max(0, 1.0 - Math.pow(ch3Zoom, 1.8) * 1.2);
+        radarMainGroup.visible = radarFade > 0.01;
       }
 
-      // Radar Rings rotation
+      // Chapter 4: 3 Silos on the left, gentle drifting and smooth progressive expansion into Chapter 5
+      const ch4SiloZoom = Math.min(Math.max((scrollY - windowH * 2.5) / (windowH * 0.65), 0), 1.0);
+      
+      if (ch4Progress > 0.01 && ch4SiloZoom < 0.99) {
+        isolationGroup.visible = true;
+        
+        // Gentle progressive zoom expansion into camera
+        const siloExpansion = 0.85 + ch4Progress * 0.15 + Math.pow(ch4SiloZoom * 2.2, 2.0);
+        const siloZ = Math.pow(ch4SiloZoom, 1.5) * 1200;
+        
+        isolationGroup.position.z = siloZ;
+        isolationGroup.scale.set(siloExpansion, siloExpansion, siloExpansion);
+        
+        // Gentle outward scatter
+        isolationGroup.position.x = -360 - ch4SiloZoom * 240;
+        silo1.position.y = 280 + ch4SiloZoom * 180 + Math.sin(time * 0.8) * 5;
+        silo1.rotation.y += 0.005;
+        silo1.rotation.x += 0.002;
+
+        silo2.position.y = 0 + Math.sin(time * 0.9 + 1) * 6;
+        silo2.rotation.x += 0.004;
+        silo2.rotation.z += 0.003;
+
+        silo3.position.y = -280 - ch4SiloZoom * 180 + Math.sin(time * 0.7 + 2) * 5;
+        silo3.rotation.y += 0.005;
+        silo3.rotation.z += 0.002;
+
+        // Smooth fade out
+        const siloFade = Math.max(0, 1.0 - Math.pow(ch4SiloZoom, 1.8) * 1.2);
+        isolationGroup.visible = siloFade > 0.01;
+      } else {
+        isolationGroup.visible = false;
+      }
+
+      // Radar Rings: Calm, slow rotation
       radarRings.children.forEach((ring, i) => {
-        ring.rotation.z += (ring.userData.speed || 0.0005);
-        ring.rotation.y += 0.0002 * (i % 2 === 0 ? 1 : -1);
+        ring.rotation.z += (ring.userData.speed || 0.0005) * 0.4;
+        ring.rotation.y += 0.0001 * (i % 2 === 0 ? 1 : -1);
       });
 
-      // Clusters rotation & float
+      // Clusters rotation & gentle float
       clusters.children.forEach((cluster, i) => {
-        cluster.rotation.y += 0.014;
-        cluster.rotation.x += 0.007;
-        cluster.position.y += Math.sin(time * 2 + i) * 0.2;
+        cluster.rotation.y += 0.004;
+        cluster.rotation.x += 0.002;
+        cluster.position.y += Math.sin(time * 0.8 + i) * 0.1;
       });
 
-      // Monoliths rotation
+      // Monoliths rotation: very slow
       monoliths.children.forEach((m) => {
-        m.rotation.y += 0.0015;
+        m.rotation.y += 0.0005;
       });
 
       // Interactive Particles Repulsion Logic
@@ -341,7 +427,7 @@ export function ParticleConstellation() {
 
         // Space Boundaries wrapping
         if (Math.abs(posArray[i * 3]) > 1000) posArray[i * 3] *= -0.95;
-        if (Math.abs(posArray[i * 3 + 1]) > 1000) posArray[i * 3 + 1] *= -0.95;
+        if (Math.abs(posArray[i * 3 + 1]) > 1000) posArray[i * 3] *= -0.95;
         if (Math.abs(posArray[i * 3 + 2]) > 500) posArray[i * 3 + 2] *= -0.95;
       }
       interactiveParticles.geometry.attributes.position.needsUpdate = true;

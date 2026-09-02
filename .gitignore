@@ -37,5 +37,11 @@ htmlcov/
 .coverage
 coverage/
 
+# Media & Large Files
+*.mov
+*.mp4
+*.mkv
+*.avi
+
 # OS
 Thumbs.db

@@ -1,7 +1,8 @@
 /**
  * Ambient Voice & Audio Engine for MerchantMind
- * Integrates Web Speech API SpeechRecognition (STT) and SpeechSynthesis (TTS)
- * with barge-in interruption, silence auto-dispatch, and natural text cleaning.
+ * High-Fidelity Indian English Speech Engine with Phonetic Indian Pronunciation Normalizer,
+ * Web Speech API SpeechRecognition (STT), SpeechSynthesis (TTS), Barge-In Interruption,
+ * and Silence Auto-Dispatch.
  */
 
 export type VoiceState = "idle" | "listening" | "thinking" | "speaking";
@@ -13,6 +14,66 @@ export interface VoiceManagerOptions {
   onError?: (error: string) => void;
 }
 
+// Indian Food, Geography, Currency, and Cultural Phonetic Dictionary for Natural TTS
+const PHONETIC_DICTIONARY: Array<[RegExp, string]> = [
+  // Food & Dishes
+  [/\bmanchurian\b/gi, "Man-choorian"],
+  [/\bgobi\b/gi, "Go-bee"],
+  [/\bpaneer\b/gi, "Puh-neer"],
+  [/\bbiryani\b/gi, "Beer-yaani"],
+  [/\bpulao\b/gi, "Poo-lao"],
+  [/\btandoori\b/gi, "Tun-doori"],
+  [/\btikka\b/gi, "Tik-kaa"],
+  [/\bmasala\b/gi, "Muh-saa-laa"],
+  [/\bdosa\b/gi, "Dho-saa"],
+  [/\bidli\b/gi, "Id-lee"],
+  [/\bvada\b/gi, "Vuh-daa"],
+  [/\bsambar\b/gi, "Saam-baar"],
+  [/\bchutney\b/gi, "Chut-nee"],
+  [/\bchaat\b/gi, "Chaa-t"],
+  [/\bnaan\b/gi, "Naan"],
+  [/\bkulcha\b/gi, "Kul-chaa"],
+  [/\bparotta\b/gi, "Puh-ro-tah"],
+  [/\bparatha\b/gi, "Puh-raa-thaa"],
+  [/\bgulab jamun\b/gi, "Goo-laab Jaa-moon"],
+  [/\brasgulla\b/gi, "Rus-gool-laa"],
+  [/\bkulfi\b/gi, "Kool-fee"],
+  [/\bchai\b/gi, "Chai"],
+  [/\blassi\b/gi, "Lus-see"],
+
+  // Bangalore Locations & Neighborhoods
+  [/\bindiranagar\b/gi, "Indira Nagar"],
+  [/\bkoramangala\b/gi, "Kora-mangala"],
+  [/\bmarathahalli\b/gi, "Maratha-halli"],
+  [/\bhsr\b/gi, "H S R"],
+  [/\bwhitefield\b/gi, "White-field"],
+  [/\bjayanagar\b/gi, "Jaya Nagar"],
+  [/\bbasavanagudi\b/gi, "Basa-vana-gudi"],
+  [/\bmalleshwaram\b/gi, "Mallesh-waram"],
+  [/\bbanashankari\b/gi, "Bana-shankari"],
+  [/\belectronic city\b/gi, "Electronic City"],
+  [/\bhebbal\b/gi, "Heb-baal"],
+  [/\byelahanka\b/gi, "Yela-hunka"],
+  [/\bfrazer town\b/gi, "Frazer Town"],
+  [/\bsarjapur\b/gi, "Sarja-pur"],
+  [/\bbhavan\b/gi, "Bhu-vun"],
+
+  // Currency & Formats
+  [/₹\s*([0-9,]+(\.[0-9]{1,2})?)/g, "$1 rupees"],
+  [/Rs\.?\s*([0-9,]+(\.[0-9]{1,2})?)/gi, "$1 rupees"],
+  [/\binr\s*([0-9,]+)/gi, "$1 rupees"],
+
+  // Terms & Abbreviations
+  [/\bnon-veg\b/gi, "non-vegetarian"],
+  [/\bveg\b/gi, "vegetarian"],
+  [/\bmins\b/gi, "minutes"],
+  [/\bmin\b/gi, "minute"],
+  [/\beta\b/gi, "estimated time of arrival"],
+  [/\brzp\b/gi, "Razorpay"],
+  [/\bqty\b/gi, "quantity"],
+  [/\bapprox\b/gi, "approximately"],
+];
+
 class VoiceManager {
   private recognition: any = null;
   private isSupported: boolean = false;
@@ -22,6 +83,7 @@ class VoiceManager {
   private isVoiceModeEnabled: boolean = false;
   private options: VoiceManagerOptions = {};
   private activeUtterance: SpeechSynthesisUtterance | null = null;
+  private cachedVoices: SpeechSynthesisVoice[] = [];
 
   constructor() {
     if (typeof window !== "undefined") {
@@ -34,10 +96,21 @@ class VoiceManager {
         this.recognition = new SpeechRecognition();
         this.recognition.continuous = true;
         this.recognition.interimResults = true;
-        this.recognition.lang = "en-IN"; // English (India) with fallback to en-US
+        this.recognition.lang = "en-IN"; // Set Indian English speech recognition
 
         this.setupRecognitionListeners();
       }
+
+      this.initVoices();
+    }
+  }
+
+  private initVoices() {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      this.cachedVoices = window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () => {
+        this.cachedVoices = window.speechSynthesis.getVoices();
+      };
     }
   }
 
@@ -78,14 +151,13 @@ class VoiceManager {
 
   public startListening() {
     if (!this.isSupported || !this.recognition) return;
-    this.stopSpeaking(); // Barge-in interruption: cancel TTS when user wants to talk
+    this.stopSpeaking(); // Barge-in interruption: cancel TTS when user starts talking
 
     try {
       this.currentTranscript = "";
       this.recognition.start();
       this.setState("listening");
     } catch (e: any) {
-      // Recognition may already be running
       if (e.name !== "InvalidStateError") {
         console.warn("SpeechRecognition start error:", e);
       }
@@ -137,7 +209,7 @@ class VoiceManager {
       this.currentTranscript = combined;
       this.options.onTranscript?.(combined, !!final);
 
-      // Barge-in: If user speaks, kill any playing audio
+      // Barge-in: If user speaks, immediately cancel any playing TTS
       this.stopSpeaking();
 
       // Reset silence detection timer (auto-submit after 1.6s of silence)
@@ -178,24 +250,76 @@ class VoiceManager {
   }
 
   /**
-   * Cleans markdown formatting, emojis, and raw URLs so TTS speaks natural English.
+   * Cleans markdown, formatting, emojis, and applies Indian English phonetic pronunciation normalizer.
    */
   public cleanTextForSpeech(text: string): string {
     if (!text) return "";
-    return text
+
+    let cleaned = text
       .replace(/```[\s\S]*?```/g, "") // remove code blocks
       .replace(/`([^`]+)`/g, "$1") // inline code
       .replace(/\*\*([^*]+)\*\*/g, "$1") // bold
       .replace(/\*([^*]+)\*/g, "$1") // italic
       .replace(/#+\s*/g, "") // headers
       .replace(/https?:\/\/\S+/g, "link on your screen") // URLs
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // markdown links -> anchor text only
+      .replace(/•/g, ", ") // bullet points -> natural breath pause
       .replace(/[^\w\s.,?!₹\-'"]/g, " ") // special icons & emojis
       .replace(/\s+/g, " ")
       .trim();
+
+    // Apply Indian English phonetic replacements
+    for (const [pattern, replacement] of PHONETIC_DICTIONARY) {
+      cleaned = cleaned.replace(pattern, replacement);
+    }
+
+    return cleaned.trim();
   }
 
   /**
-   * Speaks the response aloud using window.speechSynthesis.
+   * Finds the most natural, authentic Indian English voice available in the client environment.
+   */
+  private getBestIndianVoice(): SpeechSynthesisVoice | null {
+    const voices = this.cachedVoices.length > 0 ? this.cachedVoices : (typeof window !== "undefined" && "speechSynthesis" in window ? window.speechSynthesis.getVoices() : []);
+    if (!voices || voices.length === 0) return null;
+
+    // 1. First priority: Dedicated Indian English voices
+    const indianVoices = [
+      // Chrome / Edge Natural Indian English
+      voices.find((v) => v.lang === "en-IN" && (v.name.includes("Google") || v.name.includes("Natural"))),
+      voices.find((v) => v.name.includes("Neerja") || v.name.includes("Prabhat")),
+      // macOS / iOS High-Fidelity Indian English Voices
+      voices.find((v) => v.name.includes("Rishi")),
+      voices.find((v) => v.name.includes("Sangeeta")),
+      voices.find((v) => v.name.includes("Veena")),
+      // Generic en-IN
+      voices.find((v) => v.lang === "en-IN" || v.lang === "en_IN"),
+      voices.find((v) => v.lang.startsWith("en-IN") || v.lang.startsWith("en_IN")),
+      // Hindi fallback with English capability
+      voices.find((v) => v.lang === "hi-IN" || v.lang === "hi_IN" || v.name.includes("India")),
+    ];
+
+    for (const v of indianVoices) {
+      if (v) return v;
+    }
+
+    // 2. Second priority: High-quality natural English voice
+    const naturalVoices = [
+      voices.find((v) => v.lang.startsWith("en") && v.name.includes("Google")),
+      voices.find((v) => v.lang.startsWith("en") && (v.name.includes("Samantha") || v.name.includes("Serena"))),
+      voices.find((v) => v.lang.startsWith("en") && v.name.includes("Natural")),
+      voices.find((v) => v.lang.startsWith("en")),
+    ];
+
+    for (const v of naturalVoices) {
+      if (v) return v;
+    }
+
+    return voices[0] || null;
+  }
+
+  /**
+   * Speaks the response aloud using window.speechSynthesis with Indian English phonetics.
    */
   public speak(text: string, onEnd?: () => void) {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) {
@@ -216,19 +340,17 @@ class VoiceManager {
     const utterance = new SpeechSynthesisUtterance(cleanText);
     this.activeUtterance = utterance;
 
-    // Pick best English voice
-    const voices = window.speechSynthesis.getVoices();
-    const preferredVoice =
-      voices.find((v) => v.lang === "en-IN" || v.name.includes("India")) ||
-      voices.find((v) => v.lang.startsWith("en") && (v.name.includes("Google") || v.name.includes("Samantha") || v.name.includes("Natural"))) ||
-      voices.find((v) => v.lang.startsWith("en"));
+    // Explicitly set language to en-IN for authentic Indian prosody & phonology
+    utterance.lang = "en-IN";
 
+    const preferredVoice = this.getBestIndianVoice();
     if (preferredVoice) {
       utterance.voice = preferredVoice;
     }
 
-    utterance.rate = 1.05; // slightly upbeat conversational pace
-    utterance.pitch = 1.0;
+    // Optimal warm, articulate Indian conversational pace and pitch
+    utterance.rate = 0.98;
+    utterance.pitch = 1.02;
 
     this.setState("speaking");
 

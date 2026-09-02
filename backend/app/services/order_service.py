@@ -412,7 +412,6 @@ async def get_order_tracking_data(db: AsyncSession, order_id: uuid.UUID) -> dict
         return None
 
     # Fetch merchant details
-    from app.models.merchant import Merchant
     m_stmt = select(Merchant).where(Merchant.id == order.merchant_id)
     m_res = await db.execute(m_stmt)
     merchant = m_res.scalar_one_or_none()

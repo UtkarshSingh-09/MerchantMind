@@ -1,0 +1,24 @@
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = [
+    "E501", # Line too long
+    "F401", # Unused imports
+    "F841", # Unused variables
+    "E402", # Module level import not at top of file
+    "W291", # Trailing whitespace
+    "W292", # No newline at end of file
+    "W293", # Blank line contains whitespace
+    "F541", # f-string without placeholder
+    "E722", # Bare except
+    "E712", # Comparison to True should be 'if cond is True'
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = "test_*.py"
+pythonpath = ["."]

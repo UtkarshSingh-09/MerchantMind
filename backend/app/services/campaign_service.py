@@ -28,7 +28,7 @@ async def find_dormant_customers(
         and_(
             Customer.merchant_id == merchant_id,
             or_(
-                Customer.last_order_at == None,
+                Customer.last_order_at.is_(None),
                 Customer.last_order_at < cutoff,
             ),
         )

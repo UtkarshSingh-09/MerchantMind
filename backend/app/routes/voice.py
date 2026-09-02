@@ -45,8 +45,9 @@ async def speak_text_deepgram(payload: VoiceSpeakRequest):
             detail="Deepgram API key not configured. Fallback to client speech synthesis.",
         )
 
-    voice_model = payload.model or settings.deepgram_voice_model or "aura-asteria-en"
-    deepgram_url = f"https://api.deepgram.com/v1/speak?model={voice_model}"
+    voice_model = payload.model or settings.deepgram_voice_model or "flux-meena-en"
+    endpoint_version = "v2" if voice_model.startswith("flux-") else "v1"
+    deepgram_url = f"https://api.deepgram.com/{endpoint_version}/speak?model={voice_model}"
 
     headers = {
         "Authorization": f"Token {settings.deepgram_api_key.strip()}",

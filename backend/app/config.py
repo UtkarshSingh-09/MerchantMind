@@ -28,7 +28,7 @@ class Settings(BaseSettings):
 
     # Deepgram Voice AI
     deepgram_api_key: str = ""
-    deepgram_voice_model: str = "aura-asteria-en"
+    deepgram_voice_model: str = "flux-meena-en"
 
     # Razorpay
     razorpay_key_id: str = ""

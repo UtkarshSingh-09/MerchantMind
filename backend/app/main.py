@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import engine, Base
 from app.middleware.error_handler import ErrorHandlerMiddleware
-from app.routes import merchants, products, chat, orders, webhooks, health, campaigns, audit, merchant_chat, analytics, customers
+from app.routes import merchants, products, chat, orders, webhooks, health, campaigns, audit, merchant_chat, analytics, customers, voice
 # Import all models to ensure they register on Base.metadata
 from app.models import merchant, product, customer, conversation, order, campaign, audit_log, dead_letter
 
@@ -125,5 +125,6 @@ app.include_router(webhooks.router, prefix="/api/webhooks", tags=["Webhooks"])
 app.include_router(campaigns.router, prefix="/api/campaigns", tags=["Campaigns"])
 app.include_router(audit.router, prefix="/api/audit", tags=["Audit"])
 app.include_router(customers.router, tags=["Customers"])
+app.include_router(voice.router, tags=["Voice AI"])
 app.include_router(analytics.router, prefix="/api", tags=["Analytics & Benchmarks"])
 

@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     groq_model: str = "openai/gpt-oss-120b"
     groq_fallback_model: str = "openai/gpt-oss-20b"
 
+    # Deepgram Voice AI
+    deepgram_api_key: str = ""
+    deepgram_voice_model: str = "aura-asteria-en"
+
     # Razorpay
     razorpay_key_id: str = ""
     razorpay_key_secret: str = ""

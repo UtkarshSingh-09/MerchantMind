@@ -318,21 +318,65 @@ class VoiceManager {
     return voices[0] || null;
   }
 
-  /**
-   * Speaks the response aloud using window.speechSynthesis with Indian English phonetics.
-   */
-  public speak(text: string, onEnd?: () => void) {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-      onEnd?.();
-      return;
-    }
+  private activeAudioElement: HTMLAudioElement | null = null;
 
+  /**
+   * Speaks the response aloud using Deepgram Aura TTS with graceful fallback to browser speech synthesis.
+   */
+  public async speak(text: string, onEnd?: () => void) {
     this.stopSpeaking();
     this.stopListening();
 
     const cleanText = this.cleanTextForSpeech(text);
     if (!cleanText) {
       if (this.isVoiceModeEnabled) this.startListening();
+      onEnd?.();
+      return;
+    }
+
+    // 1. Try Deepgram Studio Aura TTS first
+    try {
+      const { fetchDeepgramVoiceAudio } = await import("./api");
+      const audioBlob = await fetchDeepgramVoiceAudio(cleanText);
+
+      if (audioBlob && typeof window !== "undefined") {
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+        this.activeAudioElement = audio;
+
+        this.setState("speaking");
+
+        audio.onended = () => {
+          URL.revokeObjectURL(audioUrl);
+          this.activeAudioElement = null;
+          if (this.isVoiceModeEnabled) {
+            this.startListening();
+          } else {
+            this.setState("idle");
+          }
+          onEnd?.();
+        };
+
+        audio.onerror = (e) => {
+          console.warn("Deepgram Audio playback error, falling back to speech synthesis:", e);
+          URL.revokeObjectURL(audioUrl);
+          this.activeAudioElement = null;
+          this.fallbackSpeak(cleanText, onEnd);
+        };
+
+        await audio.play();
+        return;
+      }
+    } catch (dgErr) {
+      console.warn("Deepgram Aura TTS not available, using browser speech synthesis:", dgErr);
+    }
+
+    // 2. Fallback to Enhanced Browser SpeechSynthesis
+    this.fallbackSpeak(cleanText, onEnd);
+  }
+
+  private fallbackSpeak(cleanText: string, onEnd?: () => void) {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
       onEnd?.();
       return;
     }
@@ -379,6 +423,16 @@ class VoiceManager {
   }
 
   public stopSpeaking() {
+    if (this.activeAudioElement) {
+      try {
+        this.activeAudioElement.pause();
+        this.activeAudioElement.currentTime = 0;
+      } catch (e) {
+        // Ignore
+      }
+      this.activeAudioElement = null;
+    }
+
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
       this.activeUtterance = null;

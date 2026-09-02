@@ -527,5 +527,42 @@ export async function fetchDemoCustomer(): Promise<CustomerProfile | null> {
   }
 }
 
+export async function fetchVoiceStatus(): Promise<{ deepgram_enabled: boolean; provider: string } | null> {
+  try {
+    const res = await resilientFetch("/api/voice/status", { cache: "no-store" });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (error) {
+    console.error("fetchVoiceStatus error:", error);
+    return null;
+  }
+}
+
+export async function fetchDeepgramVoiceAudio(text: string): Promise<Blob | null> {
+  try {
+    const res = await resilientFetch("/api/voice/speak", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ text }),
+    });
+
+    if (!res.ok) {
+      return null;
+    }
+
+    const contentType = res.headers.get("content-type") || "";
+    if (!contentType.includes("audio")) {
+      return null;
+    }
+
+    return await res.blob();
+  } catch (error) {
+    console.warn("Deepgram TTS fetch failed, will fallback:", error);
+    return null;
+  }
+}
+
 
 

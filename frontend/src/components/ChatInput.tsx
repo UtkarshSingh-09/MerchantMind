@@ -1,31 +1,110 @@
 "use client";
 
-import React, { useState, KeyboardEvent } from "react";
-import { Send, Sparkles, Loader2 } from "lucide-react";
+import React, { useState, useEffect, useRef, KeyboardEvent } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Send,
+  Loader2,
+  Mic,
+  MicOff,
+  Volume2,
+  Sparkles,
+  Cake,
+  Salad,
+  Gift,
+  Coffee,
+  Store,
+  Tag,
+  ShoppingBag,
+  Compass,
+} from "lucide-react";
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
   isLoading: boolean;
   onSuggestionClick?: (suggestion: string) => void;
+  suggestions?: string[];
+  placeholder?: string;
 }
 
-const QUICK_SUGGESTIONS = [
-  "🎂 Chocolate cake under ₹800 for birthday",
-  "🥐 Fresh breakfast pastries",
-  "🎉 Party combo with balloons",
-  "☕ Cold coffee & sourdough bread",
+const DEFAULT_SUGGESTIONS = [
+  "Chocolate cake under ₹800",
+  "Fresh breakfast pastries & croissants",
+  "Weekly grocery basket under ₹1000",
+  "Pure linen shirt under ₹1500",
+  "Explore Bangalore bakeries & restaurants",
 ];
 
 export function ChatInput({
   onSendMessage,
   isLoading,
   onSuggestionClick,
+  suggestions = DEFAULT_SUGGESTIONS,
+  placeholder = "Ask for items or budget (e.g. under ₹800)...",
 }: ChatInputProps) {
   const [input, setInput] = useState("");
+  const [isListening, setIsListening] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (SpeechRecognition) {
+      setSpeechSupported(true);
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = "en-IN";
+
+      recognition.onresult = (event: any) => {
+        const transcript = Array.from(event.results)
+          .map((res: any) => res[0].transcript)
+          .join("");
+        setInput(transcript);
+      };
+
+      recognition.onerror = (event: any) => {
+        console.warn("Speech recognition error:", event.error);
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+    }
+  }, []);
+
+  const toggleListening = () => {
+    if (!speechSupported || !recognitionRef.current) {
+      alert("Voice input is not supported in this browser.");
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+      } catch (err) {
+        console.error("Speech start error:", err);
+      }
+    }
+  };
 
   const handleSubmit = () => {
     const trimmed = input.trim();
     if (!trimmed || isLoading) return;
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    }
     onSendMessage(trimmed);
     setInput("");
   };
@@ -37,45 +116,152 @@ export function ChatInput({
     }
   };
 
+  const renderSuggestionIcon = (suggestion: string) => {
+    const s = suggestion.toLowerCase();
+    if (s.includes("cake") || s.includes("dessert") || s.includes("birthday") || s.includes("sweet")) {
+      return <Cake className="h-3 w-3 text-purple-400 shrink-0" />;
+    }
+    if (s.includes("groc") || s.includes("veg") || s.includes("apple") || s.includes("salad") || s.includes("fruit")) {
+      return <Salad className="h-3 w-3 text-emerald-400 shrink-0" />;
+    }
+    if (s.includes("shirt") || s.includes("kurta") || s.includes("cloth") || s.includes("gift") || s.includes("dress")) {
+      return <Gift className="h-3 w-3 text-pink-400 shrink-0" />;
+    }
+    if (s.includes("croissant") || s.includes("pastr") || s.includes("coffee") || s.includes("bread") || s.includes("tea")) {
+      return <Coffee className="h-3 w-3 text-amber-400 shrink-0" />;
+    }
+    if (s.includes("store") || s.includes("available") || s.includes("city") || s.includes("explore")) {
+      return <Compass className="h-3 w-3 text-cyan-400 shrink-0" />;
+    }
+    return <Tag className="h-3 w-3 text-[#A78BFA] shrink-0" />;
+  };
+
   return (
-    <div className="w-full space-y-2.5">
-      {/* Suggestion Chips */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
-        <span className="flex shrink-0 items-center gap-1 font-medium text-zinc-400">
-          <Sparkles className="h-3 w-3 text-indigo-500" />
-          Try:
-        </span>
-        {QUICK_SUGGESTIONS.map((s, idx) => (
-          <button
-            key={idx}
-            onClick={() => {
-              if (onSuggestionClick) onSuggestionClick(s);
-              else onSendMessage(s);
-            }}
-            disabled={isLoading}
-            className="shrink-0 rounded-full border border-zinc-200/80 bg-white/80 px-3 py-1 text-zinc-600 shadow-2xs backdrop-blur-sm transition hover:border-indigo-300 hover:bg-indigo-50/60 hover:text-indigo-700 disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-900/80 dark:text-zinc-300 dark:hover:border-indigo-700 dark:hover:bg-indigo-950/40"
-          >
-            {s}
-          </button>
-        ))}
+    <div className="flex flex-col gap-2.5">
+      {/* Dynamic Suggested Prompt Chips */}
+      <div className="relative">
+        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 pt-0.5">
+          {suggestions.map((s, idx) => {
+            const cleanText = s.replace(/^[^\w\s₹]+/, "").trim();
+            return (
+              <motion.button
+                key={idx}
+                whileHover={{ scale: 1.03, y: -1 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => {
+                  if (onSuggestionClick) {
+                    onSuggestionClick(cleanText);
+                  } else {
+                    onSendMessage(cleanText);
+                  }
+                }}
+                disabled={isLoading}
+                className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-[#2A2A3E] bg-[#12121E]/90 px-3 py-1 text-xs text-zinc-300 shadow-sm backdrop-blur-md transition-all hover:border-[#7C3AED]/50 hover:bg-[#7C3AED]/15 hover:text-white disabled:opacity-50 cursor-pointer"
+              >
+                {renderSuggestionIcon(s)}
+                <span>{cleanText}</span>
+              </motion.button>
+            );
+          })}
+        </div>
+        {/* Right edge fade gradient */}
+        <div className="pointer-events-none absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-[#0A0A12] to-transparent" />
       </div>
 
-      {/* Input Field */}
-      <div className="relative flex items-center rounded-2xl border border-zinc-200/90 bg-white shadow-sm transition-all focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20 dark:border-zinc-800 dark:bg-zinc-900">
+      {/* Voice Listening Wave Indicator */}
+      <AnimatePresence>
+        {isListening && (
+          <motion.div
+            initial={{ opacity: 0, height: 0, scale: 0.95 }}
+            animate={{ opacity: 1, height: "auto", scale: 1 }}
+            exit={{ opacity: 0, height: 0, scale: 0.95 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-[#7C3AED]/15 border border-[#7C3AED]/40 text-xs text-[#A78BFA]"
+          >
+            <div className="flex items-center gap-2">
+              <Volume2 className="h-3.5 w-3.5 text-[#0891B2] animate-bounce" />
+              <span className="font-medium">Listening to your voice...</span>
+              <span className="flex gap-0.5 items-center">
+                {[0, 1, 2, 3].map((i) => (
+                  <motion.span
+                    key={i}
+                    className="w-0.5 rounded-full bg-[#0891B2]"
+                    animate={{ height: ["4px", "14px", "4px"] }}
+                    transition={{
+                      duration: 0.6,
+                      repeat: Infinity,
+                      delay: i * 0.12,
+                      ease: "easeInOut",
+                    }}
+                  />
+                ))}
+              </span>
+            </div>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={toggleListening}
+              className="text-[11px] font-semibold text-rose-400 hover:text-rose-300 cursor-pointer"
+            >
+              Stop
+            </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Input Field Bar with subtle glow */}
+      <motion.div
+        animate={{
+          borderColor: isFocused ? "#7C3AED" : "#2A2A3E",
+          boxShadow: isFocused
+            ? "0 0 24px -2px rgba(124, 58, 237, 0.35)"
+            : "0 4px 20px -2px rgba(0, 0, 0, 0.4)",
+        }}
+        transition={{ duration: 0.2 }}
+        className="relative flex items-center gap-2 rounded-2xl border bg-[#12121E]/95 p-1.5 shadow-lg backdrop-blur-xl transition-all"
+      >
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          placeholder={placeholder}
           disabled={isLoading}
-          placeholder="Ask for items, cakes under a budget, or add to cart..."
-          className="w-full rounded-2xl bg-transparent py-3.5 pl-4 pr-12 text-sm text-zinc-800 placeholder-zinc-400 outline-none disabled:opacity-60 dark:text-zinc-100"
+          className="flex-1 bg-transparent px-3.5 py-2 text-xs sm:text-sm text-[#F0EEFF] placeholder-zinc-500 focus:outline-none disabled:opacity-50"
         />
 
-        <button
+        {/* Voice Input Mic Button */}
+        {speechSupported && (
+          <motion.button
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.92 }}
+            type="button"
+            onClick={toggleListening}
+            disabled={isLoading}
+            className={`flex h-8 w-8 items-center justify-center rounded-xl transition-all cursor-pointer ${
+              isListening
+                ? "bg-rose-500 text-white shadow-lg shadow-rose-500/30 animate-pulse"
+                : "bg-[#1E1E2E] text-zinc-400 hover:bg-[#2A2A3E] hover:text-white"
+            }`}
+            title={isListening ? "Stop listening" : "Voice input"}
+          >
+            {isListening ? (
+              <MicOff className="h-3.5 w-3.5" />
+            ) : (
+              <Mic className="h-3.5 w-3.5" />
+            )}
+          </motion.button>
+        )}
+
+        {/* Send Action Button */}
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
           onClick={handleSubmit}
           disabled={!input.trim() || isLoading}
-          className="absolute right-2 flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-95 disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-400 dark:bg-indigo-500 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-600"
+          className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-[#7C3AED] to-[#0891B2] text-white shadow-md shadow-[#7C3AED]/20 transition-all hover:from-[#6D28D9] hover:to-[#0e7490] hover:shadow-lg hover:shadow-[#7C3AED]/30 disabled:opacity-30 disabled:hover:scale-100 disabled:cursor-not-allowed cursor-pointer"
           title="Send message"
         >
           {isLoading ? (
@@ -83,8 +269,8 @@ export function ChatInput({
           ) : (
             <Send className="h-4 w-4" />
           )}
-        </button>
-      </div>
+        </motion.button>
+      </motion.div>
     </div>
   );
 }

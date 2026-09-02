@@ -34,6 +34,7 @@ class MerchantResponse(BaseModel):
     description: str | None = None
     whatsapp_number: str | None = None
     is_active: bool
+    api_key: str | None = None
     created_at: datetime
     updated_at: datetime
 

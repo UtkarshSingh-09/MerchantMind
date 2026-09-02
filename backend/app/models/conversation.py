@@ -16,8 +16,8 @@ class Conversation(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    merchant_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("merchants.id", ondelete="CASCADE"), nullable=False
+    merchant_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("merchants.id", ondelete="CASCADE"), nullable=True
     )
     customer_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("customers.id", ondelete="SET NULL"), nullable=True
@@ -34,6 +34,9 @@ class Conversation(Base):
 
     # Agent reasoning logs
     agent_reasoning: Mapped[list] = mapped_column(JSONB, default=list)
+
+    # Multi-agent handoff context
+    handoff_context: Mapped[dict] = mapped_column(JSONB, default=dict)
 
     # Status: active, completed, abandoned
     status: Mapped[str] = mapped_column(String(20), default="active")

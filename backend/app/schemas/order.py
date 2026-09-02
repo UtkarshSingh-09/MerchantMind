@@ -13,6 +13,13 @@ class OrderCreate(BaseModel):
     customer_phone: str | None = None
     customer_email: str | None = None
     callback_url: str | None = None
+    fulfillment_mode: str | None = "delivery"  # "delivery" or "pickup"
+    delivery_address: str | None = None
+    delivery_latitude: float | None = None
+    delivery_longitude: float | None = None
+    pickup_time: str | None = None
+    items: list[dict[str, Any]] | None = None
+
 
 
 class OrderResponse(BaseModel):
@@ -23,6 +30,11 @@ class OrderResponse(BaseModel):
     items: list[dict[str, Any]]
     subtotal: float
     total: float
+    fulfillment_mode: str | None = "delivery"
+    delivery_address: str | None = None
+    delivery_latitude: float | None = None
+    delivery_longitude: float | None = None
+    pickup_time: str | None = None
     rzp_order_id: str | None = None
     rzp_payment_id: str | None = None
     rzp_payment_link_id: str | None = None

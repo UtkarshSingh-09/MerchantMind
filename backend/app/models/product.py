@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import String, Float, Boolean, DateTime, ForeignKey, Text, func
+from sqlalchemy import String, Float, Boolean, Integer, DateTime, ForeignKey, Text, func
 from sqlalchemy.dialects.postgresql import UUID, ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -23,10 +23,19 @@ class Product(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     price: Mapped[float] = mapped_column(Float, nullable=False)
+    price_paise: Mapped[int | None] = mapped_column(Integer, nullable=True)
     category: Mapped[str | None] = mapped_column(String(100), nullable=True)
     tags: Mapped[list | None] = mapped_column(ARRAY(String), nullable=True)
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     in_stock: Mapped[bool] = mapped_column(Boolean, default=True)
+    stock_quantity: Mapped[int | None] = mapped_column(Integer, default=10, nullable=True)
+
+    @property
+    def authoritative_price_paise(self) -> int:
+        if self.price_paise is not None:
+            return self.price_paise
+        return int(round(self.price * 100))
+
 
     # Schema.org JSON-LD representation (auto-generated)
     schema_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)

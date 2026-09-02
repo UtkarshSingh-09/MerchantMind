@@ -10,7 +10,7 @@ from app.config import settings
 
 # Create async engine
 engine = create_async_engine(
-    settings.database_url,
+    settings.resolved_database_url,
     echo=settings.app_env == "development",
     pool_size=20,
     max_overflow=10,

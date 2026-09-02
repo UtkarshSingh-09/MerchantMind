@@ -28,6 +28,14 @@ class Merchant(Base):
     # WhatsApp
     whatsapp_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
+    # Store Location (for Haversine real ETA math)
+    store_latitude: Mapped[float | None] = mapped_column(nullable=True)
+    store_longitude: Mapped[float | None] = mapped_column(nullable=True)
+    store_address: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    # Authentication & Security
+    api_key_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
     # Status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 

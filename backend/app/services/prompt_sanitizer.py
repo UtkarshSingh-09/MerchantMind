@@ -11,8 +11,8 @@ logger = logging.getLogger(__name__)
 
 # Known prompt-injection and jailbreak vectors
 _INJECTION_PATTERNS = [
-    re.compile(r"ignore\s+(?:all\s+)?(?:previous|prior|above|system\s+)?(?:instructions|prompts|rules)", re.IGNORECASE),
-    re.compile(r"disregard\s+(?:all\s+)?(?:previous|prior|system\s+)?(?:instructions|rules|constraints)", re.IGNORECASE),
+    re.compile(r"ignore\s+(?:all\s+)?(?:previous\s+|prior\s+|above\s+|system\s+)*(?:instructions|prompts|rules)", re.IGNORECASE),
+    re.compile(r"disregard\s+(?:all\s+)?(?:previous\s+|prior\s+|above\s+|system\s+)*(?:instructions|rules|constraints)", re.IGNORECASE),
     re.compile(r"(?:system\s*override|you\s+are\s+now\s+(?:in\s+)?(?:god|admin|developer|jailbreak)\s+mode)", re.IGNORECASE),
     re.compile(r"(?:bypass\s+(?:budget|guardrail|payment|checkout|security)|disable\s+guardrails?)", re.IGNORECASE),
     re.compile(r"(?:apply|give|generate|create)\s+(?:a\s+)?(?:100%|99%|90%|80%|free)\s+(?:[a-zA-Z0-9_\-]+\s+)?(?:discount|coupon|promo)", re.IGNORECASE),

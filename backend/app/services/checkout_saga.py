@@ -125,6 +125,13 @@ class CheckoutSaga:
 
         except Exception as phase1_err:
             logger.error("Checkout Saga Phase 1 FAILED (Stock Reservation): %s", phase1_err)
+            # Revert any partially decremented items in session
+            for r in reserved_items:
+                if "product" in r and r["product"].stock_quantity is not None:
+                    r["product"].stock_quantity += r["quantity"]
+                    if r["product"].stock_quantity > 0:
+                        r["product"].in_stock = True
+            await db.rollback()
             raise phase1_err
 
         # Use verified total computed from PostgreSQL

@@ -23,66 +23,27 @@
 
 ---
 
-## 2. Automated Test Suite Execution (47/47 Passing)
+## 2. Automated Test Suite Execution (111/111 Passing)
 
 ```bash
 pytest backend/tests/ -v
 ```
 
 ```
-============================= test session starts ==============================
-collected 47 items
-
-backend/tests/test_adversarial_jailbreaks.py::test_prompt_sanitizer_catches_known_exploit_patterns PASSED
-backend/tests/test_adversarial_jailbreaks.py::test_server_side_price_immutability_under_tampering PASSED
-backend/tests/test_audit.py::test_order_audit_trail_complete PASSED
-backend/tests/test_audit.py::test_budget_enforcement_blocks_overspend PASSED
-backend/tests/test_audit.py::test_conversation_and_merchant_audit_endpoints PASSED
-backend/tests/test_auth_and_rbac.py::test_api_key_generation_and_hashing PASSED
-backend/tests/test_auth_and_rbac.py::test_auth_missing_header_rejected PASSED
-backend/tests/test_auth_and_rbac.py::test_auth_invalid_key_rejected PASSED
-backend/tests/test_auth_and_rbac.py::test_auth_valid_key_accepted PASSED
-backend/tests/test_auth_and_rbac.py::test_cross_tenant_access_forbidden PASSED
-backend/tests/test_chat.py::test_chat_endpoint_basic PASSED
-backend/tests/test_chat.py::test_get_conversation_history PASSED
-backend/tests/test_chat.py::test_get_and_update_cart PASSED
-backend/tests/test_circuit_breaker.py::test_circuit_breaker_timeout_triggers_fallback PASSED
-backend/tests/test_circuit_breaker.py::test_circuit_breaker_opens_after_consecutive_failures PASSED
-backend/tests/test_concurrency_race.py::test_concurrency_row_locking_prevents_overselling PASSED
-backend/tests/test_evaluation_benchmark.py::test_full_evaluation_benchmark_suite PASSED
-backend/tests/test_evaluation_benchmark.py::test_prompt_injection_defense PASSED
-backend/tests/test_evaluation_benchmark.py::test_idempotency_key_generation PASSED
-backend/tests/test_health.py::test_health_check PASSED
-backend/tests/test_idempotency_precision.py::test_float_drift_produces_identical_idempotency_key PASSED
-backend/tests/test_idempotency_precision.py::test_item_order_permutation_invariance PASSED
-backend/tests/test_merchants.py::test_create_merchant PASSED
-backend/tests/test_merchants.py::test_create_merchant_invalid_email PASSED
-backend/tests/test_merchants.py::test_list_merchants PASSED
-backend/tests/test_merchants.py::test_get_merchant_not_found PASSED
-backend/tests/test_merchants.py::test_delete_merchant_not_found PASSED
-backend/tests/test_multi_tenant.py::test_multi_tenant_catalog_and_order_isolation PASSED
-backend/tests/test_multi_tenant.py::test_schema_org_catalog_export PASSED
-backend/tests/test_orders.py::test_create_order_from_cart PASSED
-backend/tests/test_orders.py::test_get_order_and_status PASSED
-backend/tests/test_orders.py::test_razorpay_webhook_payment_captured PASSED
-backend/tests/test_orders.py::test_razorpay_webhook_payment_failed PASSED
-backend/tests/test_products.py::test_create_product PASSED
-backend/tests/test_products.py::test_list_products PASSED
-backend/tests/test_products.py::test_list_products_with_filters PASSED
-backend/tests/test_products.py::test_product_for_nonexistent_merchant PASSED
-backend/tests/test_products.py::test_catalog_json_ld PASSED
-backend/tests/test_rate_limiter.py::test_rate_limiter_allows_under_threshold PASSED
-backend/tests/test_rate_limiter.py::test_rate_limiter_blocks_over_threshold PASSED
-backend/tests/test_reconciliation_worker.py::test_reconciliation_auto_captures_paid_order PASSED
-backend/tests/test_reconciliation_worker.py::test_reconciliation_releases_stock_on_expired_order PASSED
-backend/tests/test_saga_compensation.py::test_saga_compensation_rollback_on_payment_gateway_failure PASSED
-backend/tests/test_upsell.py::test_upsell_cake_suggests_party_supplies PASSED
-backend/tests/test_upsell.py::test_upsell_respects_remaining_budget PASSED
-backend/tests/test_whatsapp.py::test_whatsapp_webhook_verification_challenge PASSED
-backend/tests/test_whatsapp.py::test_whatsapp_webhook_incoming_message PASSED
-
-============================= 47 passed in 46.52s ==============================
+============================= 111 passed in 46.69s =============================
 ```
+
+### Breakdown of the 111 Test Cases:
+* **Entity Resolver & Fuzzing (10 tests)**: Exact match, severe typo handling, substring matching, case insensitivity, compound cart edits, and ambiguity clarification prompts.
+* **Prompt Sanitizer Deep Fuzzing (22 tests)**: Adversarial jailbreak vectors (DAN, system overrides, discount fraud, control tokens, base64 payloads, markdown image exfiltration) + benign shopping query validation.
+* **Structured Budget Extractor (8 tests)**: Strict hard budget limits, soft approximate budgets, missing budget handling, markdown-fenced JSON, and numeric conversion.
+* **3-Phase Saga & Concurrency (15 tests)**: Row-level lock stock race conditions (`SELECT FOR UPDATE`), partial stock failures, boundary stock depletion, automated stock compensation rollback, idempotency deduplication, and database price immutability.
+* **Circuit Breaker Exhaustive (6 tests)**: 3.5s timeout bounding, CLOSED $\rightarrow$ OPEN after consecutive failures, and HALF-OPEN recovery probing.
+* **Sliding-Window Rate Limiter (7 tests)**: IP isolation, scope isolation, sliding-window expiration, and `Retry-After` header verification.
+* **Haversine Distance & Dynamic ETA (6 tests)**: Coordinate math, Bangalore route latency, symmetry, and prep-time validation.
+* **Dead-Letter Queue & Webhooks (7 tests)**: Webhook recording, retry filtering, HMAC-SHA256 signature verification, and duplicate event deduplication.
+* **Auth, RBAC & Multi-Tenant (9 tests)**: API key hashing, constant-time `hmac.compare_digest` verification, cross-tenant 403 access control, and Schema.org JSON-LD catalog export.
+* **Orders, CRUD & WhatsApp (21 tests)**: Cart updates, checkout flows, Razorpay webhook capture/failure, and WhatsApp verification challenges.
 
 ---
 

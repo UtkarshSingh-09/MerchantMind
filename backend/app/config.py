@@ -43,10 +43,29 @@ class Settings(BaseSettings):
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins_str.split(",")]
 
+    @property
+    def resolved_database_url(self) -> str:
+        import os
+        url = self.database_url
+        is_docker = os.path.exists("/.dockerenv") or os.environ.get("RUNNING_IN_DOCKER")
+        if not is_docker and "@postgres:" in url:
+            return url.replace("@postgres:5432", "@localhost:5433")
+        return url
+
+    @property
+    def resolved_redis_url(self) -> str:
+        import os
+        url = self.redis_url
+        is_docker = os.path.exists("/.dockerenv") or os.environ.get("RUNNING_IN_DOCKER")
+        if not is_docker and "redis://redis:" in url:
+            return url.replace("redis://redis:6379", "redis://localhost:6379")
+        return url
+
     model_config = {
-        "env_file": ".env",
+        "env_file": [".env", "../.env"],
         "env_file_encoding": "utf-8",
         "case_sensitive": False,
+        "extra": "ignore",
     }
 
 

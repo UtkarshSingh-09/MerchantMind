@@ -14,7 +14,7 @@ async def _create_merchant_with_conversation(client: AsyncClient):
     """Helper to create a merchant and a conversation with items in cart."""
     unique_email = f"order_merchant_{uuid.uuid4().hex[:8]}@test.com"
     m_res = await client.post(
-        "/api/merchants/",
+        "/api/merchants",
         json={
             "name": "Sweet Bakes Order Test",
             "email": unique_email,
@@ -24,9 +24,19 @@ async def _create_merchant_with_conversation(client: AsyncClient):
     assert m_res.status_code == 201
     merchant_id = m_res.json()["id"]
 
+    # Create real products in catalog
+    cake_res = await client.post(
+        f"/api/merchants/{merchant_id}/products",
+        json={"name": "Belgian Chocolate Cake", "price": 750.0, "category": "Cakes", "in_stock": True, "stock_quantity": 10},
+    )
+    candle_res = await client.post(
+        f"/api/merchants/{merchant_id}/products",
+        json={"name": "Birthday Candles Set", "price": 50.0, "category": "Party Supplies", "in_stock": True, "stock_quantity": 10},
+    )
+
     # Start chat and populate cart
     chat_res = await client.post(
-        "/api/chat/",
+        "/api/chat",
         json={
             "merchant_id": merchant_id,
             "message": "Start session",
@@ -36,19 +46,18 @@ async def _create_merchant_with_conversation(client: AsyncClient):
     conv_id = chat_res.json()["conversation_id"]
 
     # Add items to cart
-    dummy_pid = str(uuid.uuid4())
     await client.post(
         f"/api/chat/conversations/{conv_id}/cart",
         json={
             "items": [
                 {
-                    "product_id": dummy_pid,
+                    "product_id": cake_res.json()["id"],
                     "name": "Belgian Chocolate Cake",
                     "price": 750.0,
                     "quantity": 1,
                 },
                 {
-                    "product_id": str(uuid.uuid4()),
+                    "product_id": candle_res.json()["id"],
                     "name": "Birthday Candles Set",
                     "price": 50.0,
                     "quantity": 1,
@@ -65,7 +74,7 @@ async def test_create_order_from_cart(client: AsyncClient):
     merchant_id, conv_id = await _create_merchant_with_conversation(client)
 
     res = await client.post(
-        "/api/orders/",
+        "/api/orders",
         json={
             "conversation_id": conv_id,
             "merchant_id": merchant_id,
@@ -88,7 +97,7 @@ async def test_get_order_and_status(client: AsyncClient):
     merchant_id, conv_id = await _create_merchant_with_conversation(client)
 
     order_res = await client.post(
-        "/api/orders/",
+        "/api/orders",
         json={
             "conversation_id": conv_id,
             "merchant_id": merchant_id,
@@ -115,7 +124,7 @@ async def test_razorpay_webhook_payment_captured(client: AsyncClient):
     merchant_id, conv_id = await _create_merchant_with_conversation(client)
 
     order_res = await client.post(
-        "/api/orders/",
+        "/api/orders",
         json={
             "conversation_id": conv_id,
             "merchant_id": merchant_id,
@@ -168,7 +177,7 @@ async def test_razorpay_webhook_payment_failed(client: AsyncClient):
     merchant_id, conv_id = await _create_merchant_with_conversation(client)
 
     order_res = await client.post(
-        "/api/orders/",
+        "/api/orders",
         json={
             "conversation_id": conv_id,
             "merchant_id": merchant_id,

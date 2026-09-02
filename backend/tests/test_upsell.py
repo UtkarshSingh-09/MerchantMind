@@ -15,14 +15,14 @@ async def test_upsell_cake_suggests_party_supplies(client: AsyncClient):
     """Adding cake to cart should proactively suggest candles, balloons, and party supplies."""
     unique_email = f"upsell_merchant_{uuid.uuid4().hex[:8]}@test.com"
     m_res = await client.post(
-        "/api/merchants/",
+        "/api/merchants",
         json={"name": "Upsell Bakery", "email": unique_email},
     )
     merchant_id = uuid.UUID(m_res.json()["id"])
 
     # Create Cake and Candles in DB
     cake_res = await client.post(
-        f"/api/merchants/{merchant_id}/products/",
+        f"/api/merchants/{merchant_id}/products",
         json={
             "name": "Belgian Truffle Cake",
             "price": 650.0,
@@ -32,7 +32,7 @@ async def test_upsell_cake_suggests_party_supplies(client: AsyncClient):
         },
     )
     candle_res = await client.post(
-        f"/api/merchants/{merchant_id}/products/",
+        f"/api/merchants/{merchant_id}/products",
         json={
             "name": "Birthday Candles Set",
             "price": 50.0,
@@ -42,7 +42,7 @@ async def test_upsell_cake_suggests_party_supplies(client: AsyncClient):
         },
     )
     balloon_res = await client.post(
-        f"/api/merchants/{merchant_id}/products/",
+        f"/api/merchants/{merchant_id}/products",
         json={
             "name": "Balloons & Party Combo",
             "price": 120.0,

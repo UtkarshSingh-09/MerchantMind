@@ -54,6 +54,20 @@ async def setup_test_db():
         await conn.execute(text("ALTER TABLE products ADD COLUMN IF NOT EXISTS price_paise INTEGER;"))
         await conn.execute(text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS total_paise BIGINT;"))
         await conn.execute(text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS subtotal_paise BIGINT;"))
+        # Database-level integrity check constraints
+        await conn.execute(text("""
+            DO $$ BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_stock_non_negative') THEN 
+                    ALTER TABLE products ADD CONSTRAINT check_stock_non_negative CHECK (stock_quantity IS NULL OR stock_quantity >= 0); 
+                END IF; 
+                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_price_positive') THEN 
+                    ALTER TABLE products ADD CONSTRAINT check_price_positive CHECK (price >= 0); 
+                END IF; 
+                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_total_positive') THEN 
+                    ALTER TABLE orders ADD CONSTRAINT check_total_positive CHECK (total >= 0); 
+                END IF; 
+            END $$;
+        """))
     yield
     await test_engine.dispose()
 

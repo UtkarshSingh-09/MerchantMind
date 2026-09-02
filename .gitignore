@@ -13,9 +13,10 @@ build/
 .env.local
 .env.production
 
-# IDE
+# IDE & Agent Configs
 .vscode/
 .idea/
+.agents/
 *.swp
 *.swo
 .DS_Store

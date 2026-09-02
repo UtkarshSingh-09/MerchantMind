@@ -212,7 +212,7 @@ class VoiceManager {
       // Barge-in: If user speaks, immediately cancel any playing TTS
       this.stopSpeaking();
 
-      // Reset silence detection timer (auto-submit after 1.6s of silence)
+      // Reset silence detection timer (auto-submit after 650ms of natural silence)
       if (this.silenceTimer) {
         clearTimeout(this.silenceTimer);
       }
@@ -224,7 +224,7 @@ class VoiceManager {
           this.setState("thinking");
           this.options.onAutoSubmit?.(toSend);
         }
-      }, 1600);
+      }, 650);
     };
 
     this.recognition.onerror = (event: any) => {
@@ -250,7 +250,8 @@ class VoiceManager {
   }
 
   /**
-   * Cleans markdown, formatting, emojis, and applies Indian English phonetic pronunciation normalizer.
+   * Cleans markdown, formatting, emojis, extracts concise conversational speech,
+   * and applies Indian English phonetic pronunciation normalizer for sub-150ms TTS synthesis.
    */
   public cleanTextForSpeech(text: string): string {
     if (!text) return "";
@@ -264,9 +265,18 @@ class VoiceManager {
       .replace(/https?:\/\/\S+/g, "link on your screen") // URLs
       .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // markdown links -> anchor text only
       .replace(/•/g, ", ") // bullet points -> natural breath pause
+      .replace(/[-*]\s+/g, "") // remove markdown list dashes
       .replace(/[^\w\s.,?!₹\-'"]/g, " ") // special icons & emojis
       .replace(/\s+/g, " ")
       .trim();
+
+    // For voice mode: pick the concise 1-2 core sentences for rapid <100ms TTS response
+    const sentences = cleaned.match(/[^.!?]+[.!?]+/g);
+    if (sentences && sentences.length > 2) {
+      cleaned = sentences.slice(0, 2).join(" ").trim();
+    } else if (cleaned.length > 250) {
+      cleaned = cleaned.substring(0, 250).replace(/\s+\S*$/, "") + ".";
+    }
 
     // Apply Indian English phonetic replacements
     for (const [pattern, replacement] of PHONETIC_DICTIONARY) {

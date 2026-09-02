@@ -38,15 +38,19 @@ async def test_voice_speak_without_key_triggers_fallback_error(client: AsyncClie
 async def test_voice_speak_mocked_deepgram_success(client: AsyncClient):
     """POST /api/voice/speak streams audio/mpeg bytes when Deepgram responds with 200."""
     mock_audio_bytes = b"ID3\x03\x00\x00\x00\x00\x00#TSSE\x00\x00\x00\x0f\x00\x00\x03DeepgramAura"
-    mock_dg_response = Response(status_code=200, content=mock_audio_bytes)
+
+    class MockStreamingResponse:
+        status_code = 200
+
+        async def aiter_bytes(self):
+            yield mock_audio_bytes
+
+    mock_client = AsyncMock()
+    mock_client.build_request.return_value = "mock_request"
+    mock_client.send.return_value = MockStreamingResponse()
 
     with patch.object(settings, "deepgram_api_key", "mock_dg_key_12345"):
-        mock_http_client = AsyncMock()
-        mock_http_client.post.return_value = mock_dg_response
-        mock_http_client.__aenter__.return_value = mock_http_client
-        mock_http_client.__aexit__.return_value = None
-
-        with patch("app.routes.voice.httpx.AsyncClient", return_value=mock_http_client):
+        with patch("app.routes.voice.get_deepgram_client", return_value=mock_client):
             resp = await client.post(
                 "/api/voice/speak",
                 json={"text": "Your Veg Manchurian order is confirmed!"},

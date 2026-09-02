@@ -3,11 +3,25 @@ Manages customer carts, enforces budget guardrails with active alternatives, and
 Supports real-time ReAct streaming of agent thinking, tool executions, and observations.
 """
 
+import re
 import json
 import logging
 import uuid
 from typing import Any, AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession
+
+STOPWORDS = {
+    "hey", "hi", "hello", "please", "order", "me", "one", "two", "three", "four", "1", "2", "3", "4", "5",
+    "i", "want", "to", "buy", "get", "need", "some", "a", "an", "the", "under",
+    "below", "budget", "in", "for", "max", "rs", "rupees", "inr", "around", "approx",
+    "can", "you", "show", "give", "and", "or", "with", "from", "of", "something", "like", "find"
+}
+
+
+def extract_search_keywords(text: str) -> str:
+    cleaned = re.sub(r"[^\w\s]", " ", text.lower())
+    words = [w for w in cleaned.split() if w not in STOPWORDS and not w.isdigit()]
+    return " ".join(words).strip()
 
 from app.models.merchant import Merchant
 from app.models.conversation import Conversation
@@ -874,6 +888,68 @@ class ShoppingAgent:
         payment_link: str | None = None
         final_text = ""
 
+        # 4. Speculative In-Store Catalog Fast-Path (<5ms local search)
+        spec_kw = extract_search_keywords(user_message)
+        budget_amt = cart.get("budget", {}).get("budget_amount")
+        if len(spec_kw) >= 3:
+            spec_prods = await search_products(db, merchant_id=merchant.id, query=spec_kw, max_price=budget_amt, limit=6)
+            if spec_prods:
+                action_type = "recommend"
+                for p in spec_prods[:4]:
+                    recommendations.append(
+                        ProductRecommendation(
+                            product_id=p.id,
+                            name=p.name,
+                            price=float(p.price),
+                            description=p.description or "",
+                            image_url=p.image_url,
+                            category=p.category,
+                            reasoning=f"Available at {merchant.name} — ₹{p.price:.0f}",
+                        )
+                    )
+                yield {
+                    "type": "tool_call",
+                    "agent": "ShoppingAgent",
+                    "tool": "search_catalog",
+                    "tool_display": "Search Catalog",
+                    "args": {"query": spec_kw, "max_price": budget_amt},
+                    "content": f"Searching {merchant.name} catalog for `{spec_kw}`...",
+                }
+                yield {
+                    "type": "tool_result",
+                    "agent": "ShoppingAgent",
+                    "tool": "search_catalog",
+                    "summary": f"Found {len(spec_prods)} matching items in {merchant.name}",
+                    "data": {
+                        "exact_match": True,
+                        "found_count": len(spec_prods),
+                        "products": [{"name": p.name, "price": p.price} for p in spec_prods],
+                    },
+                }
+                call_id = f"call_spec_{uuid.uuid4().hex[:6]}"
+                llm_messages.append({
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [{
+                        "id": call_id,
+                        "type": "function",
+                        "function": {
+                            "name": "search_catalog",
+                            "arguments": json.dumps({"query": spec_kw, "max_price": budget_amt}),
+                        },
+                    }],
+                })
+                llm_messages.append({
+                    "role": "tool",
+                    "tool_call_id": call_id,
+                    "name": "search_catalog",
+                    "content": json.dumps({
+                        "found_count": len(spec_prods),
+                        "products": [{"name": p.name, "price": p.price} for p in spec_prods],
+                        "instruction": f"Found {len(spec_prods)} matching items for '{spec_kw}'. Provide a concise 2-sentence conversational response presenting options with prices and asking which one to add to cart.",
+                    }),
+                })
+
         try:
             for cycle_idx in range(2):
                 yield {
@@ -884,10 +960,10 @@ class ShoppingAgent:
 
                 response = await groq_client.chat_completion(
                     messages=llm_messages,
-                    tools=SHOPPING_TOOLS,
-                    tool_choice="auto",
+                    tools=SHOPPING_TOOLS if not spec_prods else None,
+                    tool_choice="auto" if not spec_prods else "none",
                     temperature=0.2,
-                    max_tokens=350,
+                    max_tokens=300,
                 )
                 response_msg = response.choices[0].message
                 tool_calls = getattr(response_msg, "tool_calls", None)

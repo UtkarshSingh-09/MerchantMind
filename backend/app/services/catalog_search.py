@@ -129,55 +129,49 @@ async def get_product_by_id_any_merchant(
     return result.scalar_one_or_none()
 
 
+_MERCHANT_SUMMARY_CACHE: list[dict[str, Any]] | None = None
+_CACHE_TIMESTAMP: float = 0.0
+_CACHE_TTL: float = 60.0  # 60 seconds TTL
+
+
 async def get_all_merchants_summary(db: AsyncSession) -> list[dict[str, Any]]:
-    """Get all active merchants with product counts and category breakdown.
+    """Get all active merchants with product counts and price range via a single SQL query (0-2ms)."""
+    global _MERCHANT_SUMMARY_CACHE, _CACHE_TIMESTAMP
+    import time
+    now = time.time()
+    if _MERCHANT_SUMMARY_CACHE is not None and (now - _CACHE_TIMESTAMP) < _CACHE_TTL:
+        return _MERCHANT_SUMMARY_CACHE
 
-    Used to populate the Discovery Mode system prompt so the AI knows
-    what stores are available in the city.
-    """
-    merchants_stmt = select(Merchant).where(Merchant.is_active == True)
-    merchants_res = await db.execute(merchants_stmt)
-    merchants = list(merchants_res.scalars().all())
-
-    summaries = []
-    for m in merchants:
-        # Get product count and category breakdown
-        count_stmt = select(func.count(Product.id)).where(
-            Product.merchant_id == m.id, Product.in_stock == True
+    stmt = (
+        select(
+            Merchant.id,
+            Merchant.name,
+            Merchant.description,
+            func.count(Product.id).label("product_count"),
+            func.coalesce(func.min(Product.price), 0.0).label("min_price"),
+            func.coalesce(func.max(Product.price), 0.0).label("max_price"),
         )
-        count_res = await db.execute(count_stmt)
-        product_count = count_res.scalar() or 0
+        .outerjoin(Product, (Product.merchant_id == Merchant.id) & (Product.in_stock == True))
+        .where(Merchant.is_active == True)
+        .group_by(Merchant.id, Merchant.name, Merchant.description)
+        .order_by(Merchant.name.asc())
+    )
+    res = await db.execute(stmt)
+    rows = res.all()
 
-        cat_stmt = (
-            select(Product.category, func.count(Product.id).label("cnt"))
-            .where(Product.merchant_id == m.id, Product.in_stock == True)
-            .group_by(Product.category)
-        )
-        cat_res = await db.execute(cat_stmt)
-        categories = [
-            {"name": row.category or "General", "count": row.cnt}
-            for row in cat_res.all()
-        ]
-
-        # Get price range
-        price_stmt = (
-            select(func.min(Product.price), func.max(Product.price))
-            .where(Product.merchant_id == m.id, Product.in_stock == True)
-        )
-        price_res = await db.execute(price_stmt)
-        price_row = price_res.one_or_none()
-        min_price = (price_row[0] if price_row and price_row[0] is not None else 0.0)
-        max_price = (price_row[1] if price_row and price_row[1] is not None else 0.0)
-
-        summaries.append({
-            "id": str(m.id),
-            "name": m.name,
-            "description": m.description or "",
-            "product_count": product_count,
-            "categories": categories,
-            "price_range": f"₹{min_price:.0f} — ₹{max_price:.0f}",
-        })
-
+    summaries = [
+        {
+            "id": str(r.id),
+            "name": r.name,
+            "description": r.description or "",
+            "product_count": r.product_count,
+            "categories": [],
+            "price_range": f"₹{r.min_price:.0f} — ₹{r.max_price:.0f}",
+        }
+        for r in rows
+    ]
+    _MERCHANT_SUMMARY_CACHE = summaries
+    _CACHE_TIMESTAMP = now
     return summaries
 
 

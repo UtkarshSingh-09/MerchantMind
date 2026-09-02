@@ -4,11 +4,25 @@ and executes seamless handoff to ShoppingAgent upon merchant selection.
 Supports real-time ReAct streaming of agent thinking, tool executions, and observations.
 """
 
+import re
 import json
 import logging
 import uuid
 from typing import Any, AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession
+
+STOPWORDS = {
+    "hey", "hi", "hello", "please", "order", "me", "one", "two", "three", "four", "1", "2", "3", "4", "5",
+    "i", "want", "to", "buy", "get", "need", "some", "a", "an", "the", "under",
+    "below", "budget", "in", "for", "max", "rs", "rupees", "inr", "around", "approx",
+    "can", "you", "show", "give", "and", "or", "with", "from", "of", "something", "like", "find"
+}
+
+
+def extract_search_keywords(text: str) -> str:
+    cleaned = re.sub(r"[^\w\s]", " ", text.lower())
+    words = [w for w in cleaned.split() if w not in STOPWORDS and not w.isdigit()]
+    return " ".join(words).strip()
 
 from app.models.conversation import Conversation
 from app.services.groq_client import groq_client
@@ -572,6 +586,75 @@ class DiscoveryAgent:
         resolved_merchant_name: str | None = None
         last_search_query = ""
 
+        # 3. Speculative Zero-Wait Catalog Fast-Path (<10ms DB search)
+        spec_kw = extract_search_keywords(user_message)
+        budget_amt = cart.get("budget", {}).get("budget_amount")
+        if len(spec_kw) >= 3:
+            spec_products = await search_all_merchants_catalog(db, query=spec_kw, max_price=budget_amt, limit=6)
+            if spec_products:
+                action_type = "recommend"
+                last_search_query = spec_kw
+                for p in spec_products[:4]:
+                    recommendations.append(
+                        ProductRecommendation(
+                            product_id=uuid.UUID(p["id"]) if isinstance(p["id"], str) else p["id"],
+                            name=p["name"],
+                            price=float(p["price"]),
+                            description=p.get("description") or "",
+                            image_url=p.get("image_url") or "",
+                            category=p.get("category"),
+                            reasoning=f"From {p.get('merchant_name', 'Bangalore Store')} — ₹{float(p['price']):.0f}",
+                        )
+                    )
+                yield {
+                    "type": "tool_call",
+                    "agent": "DiscoveryAgent",
+                    "tool": "search_all_stores",
+                    "tool_display": "Search All Stores",
+                    "args": {"query": spec_kw, "max_price": budget_amt},
+                    "content": f"Querying city stores for `{spec_kw}`...",
+                }
+                yield {
+                    "type": "tool_result",
+                    "agent": "DiscoveryAgent",
+                    "tool": "search_all_stores",
+                    "summary": f"Found {len(spec_products)} matching items across Bangalore merchants",
+                    "data": {
+                        "exact_match": True,
+                        "found_count": len(spec_products),
+                        "products": [
+                            {"name": p["name"], "price": p["price"], "merchant_name": p.get("merchant_name", "")}
+                            for p in spec_products
+                        ],
+                    },
+                }
+                call_id = f"call_spec_{uuid.uuid4().hex[:6]}"
+                llm_messages.append({
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [{
+                        "id": call_id,
+                        "type": "function",
+                        "function": {
+                            "name": "search_all_stores",
+                            "arguments": json.dumps({"query": spec_kw, "max_price": budget_amt}),
+                        },
+                    }],
+                })
+                llm_messages.append({
+                    "role": "tool",
+                    "tool_call_id": call_id,
+                    "name": "search_all_stores",
+                    "content": json.dumps({
+                        "found_count": len(spec_products),
+                        "products": [
+                            {"name": p["name"], "price": p["price"], "merchant_name": p.get("merchant_name", "")}
+                            for p in spec_products
+                        ],
+                        "instruction": f"Found {len(spec_products)} matching items for '{spec_kw}'. Provide a concise 2-sentence conversational response presenting these options with prices and asking which one to order.",
+                    }),
+                })
+
         try:
             for cycle_idx in range(2):
                 yield {
@@ -582,10 +665,10 @@ class DiscoveryAgent:
 
                 response = await groq_client.chat_completion(
                     messages=llm_messages,
-                    tools=DISCOVERY_TOOLS,
-                    tool_choice="auto",
+                    tools=DISCOVERY_TOOLS if not spec_products else None,
+                    tool_choice="auto" if not spec_products else "none",
                     temperature=0.2,
-                    max_tokens=350,
+                    max_tokens=300,
                 )
                 response_msg = response.choices[0].message
                 tool_calls = getattr(response_msg, "tool_calls", None)

@@ -21,7 +21,6 @@ def get_deepgram_client() -> httpx.AsyncClient:
     global _http_pool
     if _http_pool is None or _http_pool.is_closed:
         _http_pool = httpx.AsyncClient(
-            http2=True,
             timeout=12.0,
             limits=httpx.Limits(max_keepalive_connections=20, max_connections=50, keepalive_expiry=30.0),
         )

@@ -190,6 +190,22 @@ class VoiceManager {
   private setupRecognitionListeners() {
     if (!this.recognition) return;
 
+    this.recognition.onaudiostart = () => {
+      // Instant Barge-In: Stop TTS playback the millisecond user starts speaking
+      this.stopSpeaking();
+      if (this.state !== "listening" && this.isVoiceModeEnabled) {
+        this.setState("listening");
+      }
+    };
+
+    this.recognition.onspeechstart = () => {
+      // Instant Barge-In: Cancel audio stream when speech begins
+      this.stopSpeaking();
+      if (this.state !== "listening" && this.isVoiceModeEnabled) {
+        this.setState("listening");
+      }
+    };
+
     this.recognition.onresult = (event: any) => {
       let interim = "";
       let final = "";

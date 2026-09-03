@@ -212,9 +212,29 @@ class VoiceManager {
       // Barge-in: If user speaks, immediately cancel any playing TTS
       this.stopSpeaking();
 
-      // Reset silence detection timer (auto-submit after 650ms of natural silence)
+      // Reset silence detection timer
       if (this.silenceTimer) {
         clearTimeout(this.silenceTimer);
+      }
+
+      // Smart Adaptive Silence Buffer:
+      // Gives users generous speaking time (2.2s - 3.0s) so natural pauses never cut them off mid-sentence.
+      const words = combined.toLowerCase().split(/\s+/);
+      const lastWord = words[words.length - 1];
+      const incompleteConnectors = [
+        "and", "or", "with", "for", "under", "from", "to", "in", "of", "the", "a", "an",
+        "please", "can", "could", "also", "want", "like", "order", "get", "need", "about",
+        "around", "between", "less", "more", "my", "me", "some", "any", "at", "rupees", "rs"
+      ];
+
+      let silenceDelay = 2200; // Default 2.2 seconds natural breathing pause
+
+      // If speech ends with an incomplete connector or preposition, grant 3.0 seconds
+      if (incompleteConnectors.includes(lastWord)) {
+        silenceDelay = 3000;
+      } else if (words.length < 4) {
+        // Short fragment (e.g. "Hey please", "I want"), wait 2.6 seconds for the main request
+        silenceDelay = 2600;
       }
 
       this.silenceTimer = setTimeout(() => {
@@ -224,7 +244,7 @@ class VoiceManager {
           this.setState("thinking");
           this.options.onAutoSubmit?.(toSend);
         }
-      }, 650);
+      }, silenceDelay);
     };
 
     this.recognition.onerror = (event: any) => {

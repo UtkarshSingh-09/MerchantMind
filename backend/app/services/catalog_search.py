@@ -48,6 +48,27 @@ async def search_products(
     return list(result.scalars().all())
 
 
+SYNONYMS = {
+    "belgium": "belgian",
+    "choc": "chocolate",
+    "veggie": "veg",
+    "pastries": "pastry",
+    "pastry": "pastries",
+    "manchurian": "manchurian",
+    "dosa": "dosa",
+    "idli": "idli",
+    "biryani": "biryani",
+    "truffles": "truffle",
+}
+
+
+def _normalize_tokens(query_str: str) -> list[str]:
+    import re
+    cleaned = re.sub(r"[^\w\s]", " ", query_str.lower())
+    raw = [w for w in cleaned.split() if len(w) >= 3 and not w.isdigit()]
+    return [SYNONYMS.get(w, w) for w in raw]
+
+
 async def search_all_merchants_catalog(
     db: AsyncSession,
     query: str | None = None,
@@ -56,10 +77,7 @@ async def search_all_merchants_catalog(
     max_price: float | None = None,
     limit: int = 10,
 ) -> list[dict[str, Any]]:
-    """Search products across ALL active merchants in the city (Discovery Mode).
-
-    Returns products with their merchant name attached for cross-store comparison.
-    """
+    """Search products across ALL active merchants in the city with multi-token relevance matching."""
     stmt = (
         select(Product, Merchant.name.label("merchant_name"), Merchant.id.label("m_id"))
         .join(Merchant, Product.merchant_id == Merchant.id)
@@ -73,21 +91,50 @@ async def search_all_merchants_catalog(
         stmt = stmt.where(Product.price >= min_price)
 
     if max_price is not None:
-        stmt = stmt.where(Product.price <= max_price)
+        # If budget is specified, allow a small 35% margin for exact matches (e.g. ₹650 for ₹500 budget)
+        stmt = stmt.where(Product.price <= (max_price * 1.35))
 
-    if query:
-        search_term = f"%{query.strip()}%"
-        stmt = stmt.where(
-            or_(
-                Product.name.ilike(search_term),
-                Product.description.ilike(search_term),
-                Product.category.ilike(search_term),
-            )
-        )
+    if query and query.strip():
+        tokens = _normalize_tokens(query)
+        if tokens:
+            token_conditions = []
+            for t in tokens:
+                token_conditions.append(Product.name.ilike(f"%{t}%"))
+                token_conditions.append(Product.description.ilike(f"%{t}%"))
+                token_conditions.append(Product.category.ilike(f"%{t}%"))
+            stmt = stmt.where(or_(*token_conditions))
 
-    stmt = stmt.order_by(Product.price.asc()).limit(limit)
+    stmt = stmt.order_by(Product.price.asc()).limit(limit * 2)
     result = await db.execute(stmt)
     rows = result.all()
+
+    # Score and rank matched products
+    query_tokens = set(_normalize_tokens(query)) if query else set()
+    scored_items = []
+    for row in rows:
+        p_name = row.Product.name.lower()
+        p_desc = (row.Product.description or "").lower()
+        p_cat = (row.Product.category or "").lower()
+        
+        score = 0
+        if query and query.lower().strip() in p_name:
+            score += 10
+        for tok in query_tokens:
+            if tok in p_name:
+                score += 5
+            elif tok in p_desc:
+                score += 2
+            elif tok in p_cat:
+                score += 3
+        
+        # Prioritize in-budget items
+        if max_price and row.Product.price <= max_price:
+            score += 4
+
+        scored_items.append((score, row))
+
+    scored_items.sort(key=lambda x: x[0], reverse=True)
+    top_rows = [item[1] for item in scored_items[:limit]]
 
     return [
         {
@@ -101,7 +148,7 @@ async def search_all_merchants_catalog(
             "tags": row.Product.tags or [],
             "image_url": row.Product.image_url or "",
         }
-        for row in rows
+        for row in top_rows
     ]
 
 

@@ -946,7 +946,7 @@ class ShoppingAgent:
                     "content": json.dumps({
                         "found_count": len(spec_prods),
                         "products": [{"name": p.name, "price": p.price} for p in spec_prods],
-                        "instruction": f"Found {len(spec_prods)} matching items for '{spec_kw}'. Provide a concise 2-sentence conversational response presenting options with prices and asking which one to add to cart.",
+                        "instruction": f"Found {len(spec_prods)} matching items for '{spec_kw}'. Present these options in an appetizing, beautifully formatted Markdown table with columns (#, Dish/Item, Price in ₹). Mention budget guardrails and provide clear numbered options for the user to add to cart or checkout.",
                     }),
                 })
 
@@ -962,8 +962,8 @@ class ShoppingAgent:
                     messages=llm_messages,
                     tools=SHOPPING_TOOLS if not spec_prods else None,
                     tool_choice="auto" if not spec_prods else "none",
-                    temperature=0.2,
-                    max_tokens=300,
+                    temperature=0.25,
+                    max_tokens=500,
                 )
                 response_msg = response.choices[0].message
                 tool_calls = getattr(response_msg, "tool_calls", None)

@@ -12,16 +12,36 @@ from typing import Any, AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 STOPWORDS = {
-    "hey", "hi", "hello", "please", "order", "me", "one", "two", "three", "four", "1", "2", "3", "4", "5",
+    "actually", "hey", "hi", "hello", "please", "order", "me", "one", "two", "three", "four", "1", "2", "3", "4", "5",
     "i", "want", "to", "buy", "get", "need", "some", "a", "an", "the", "under",
     "below", "budget", "in", "for", "max", "rs", "rupees", "inr", "around", "approx",
-    "can", "you", "show", "give", "and", "or", "with", "from", "of", "something", "like", "find"
+    "can", "you", "show", "give", "and", "or", "with", "from", "of", "something", "like", "find",
+    "my", "is", "also", "yeah", "this", "that", "it", "these", "those", "have", "looking",
+    "am", "new", "city", "don't", "know", "anything", "options", "option", "first",
+    "tell", "all", "things", "what", "written", "add", "card", "cart"
 }
+
+SYNONYMS = {
+    "belgium": "belgian",
+    "choc": "chocolate",
+    "veggie": "veg",
+    "pastries": "pastry",
+    "pastry": "pastries",
+    "manchurian": "manchurian",
+    "truffles": "truffle",
+}
+
+GREETING_REGEX = re.compile(r"^\s*(hi|hello|hey|namaste|namaskara|good\s+(morning|afternoon|evening)|hola|greetings)\b", re.IGNORECASE)
+
+ADD_TO_CART_REGEX = re.compile(
+    r"\b(add\s+(this|it|option\s*\d+|[\w\s]+)?\s*(to|in)?\s*(my)?\s*(cart|card)|order\s+(this|it|option\s*\d+|[\w\s]+))\b",
+    re.IGNORECASE,
+)
 
 
 def extract_search_keywords(text: str) -> str:
     cleaned = re.sub(r"[^\w\s]", " ", text.lower())
-    words = [w for w in cleaned.split() if w not in STOPWORDS and not w.isdigit()]
+    words = [SYNONYMS.get(w, w) for w in cleaned.split() if w not in STOPWORDS and not w.isdigit()]
     return " ".join(words).strip()
 
 from app.models.conversation import Conversation
@@ -578,6 +598,124 @@ class DiscoveryAgent:
             *optimized_history,
         ]
 
+        # Fast-Path 1: Personalized Greeting with Customer Memory
+        is_pure_greeting = GREETING_REGEX.match(user_message.strip()) and len(user_message.strip().split()) <= 4
+        if is_pure_greeting:
+            customer_first_name = ""
+            if customer_mem and "Customer Name:" in customer_mem:
+                name_match = re.search(r"Customer Name:\s*([A-Za-z]+)", customer_mem)
+                if name_match:
+                    customer_first_name = name_match.group(1)
+            
+            greeting_prefix = f"Hello {customer_first_name}! 🙏" if customer_first_name else "Hello! 🙏"
+            greeting_response = f"{greeting_prefix} Welcome to MerchantMind. What would you like to explore or order today across Bangalore stores? (e.g. *\"Truffle cake under ₹600\"* or *\"Filter coffee in Indiranagar\"*)"
+            
+            yield {
+                "type": "answer",
+                "agent": "DiscoveryAgent",
+                "content": greeting_response,
+                "chat_response": ChatResponse(
+                    conversation_id=conversation.id,
+                    merchant_id=None,
+                    merchant_name=None,
+                    message=greeting_response,
+                    recommendations=None,
+                    cart=None,
+                    cart_total=0.0,
+                    action="chat",
+                    payment_link=None,
+                    agent_reasoning=conversation.agent_reasoning if conversation.agent_reasoning else None,
+                ).model_dump(mode="json"),
+            }
+            return
+
+        # Fast-Path 2: Cart Addition Intent from Recommendations
+        if ADD_TO_CART_REGEX.search(user_message):
+            last_recs = []
+            for msg in reversed(conversation.messages or []):
+                if msg.get("role") == "assistant" and msg.get("metadata", {}).get("recommendations"):
+                    last_recs = msg["metadata"]["recommendations"]
+                    break
+            
+            target_prod = None
+            if last_recs:
+                u_lower = user_message.lower()
+                if "option 2" in u_lower or "2nd" in u_lower or "second" in u_lower or "2" in u_lower.split():
+                    target_prod = last_recs[1] if len(last_recs) > 1 else last_recs[0]
+                elif "option 3" in u_lower or "3rd" in u_lower or "third" in u_lower or "3" in u_lower.split():
+                    target_prod = last_recs[2] if len(last_recs) > 2 else last_recs[0]
+                else:
+                    # Match by name substring or default to first recommendation
+                    for r in last_recs:
+                        if any(w in r.get("name", "").lower() for w in u_lower.split() if len(w) > 3):
+                            target_prod = r
+                            break
+                    if not target_prod:
+                        target_prod = last_recs[0]
+            
+            if target_prod:
+                p_id = target_prod.get("product_id") or target_prod.get("id")
+                p_name = target_prod.get("name", "Product")
+                p_price = float(target_prod.get("price", 0.0))
+                
+                current_items = cart.get("items", [])
+                current_items.append({
+                    "product_id": str(p_id),
+                    "name": p_name,
+                    "price": p_price,
+                    "quantity": 1,
+                })
+                new_total = sum(i["price"] * i.get("quantity", 1) for i in current_items)
+                cart["items"] = current_items
+                cart["total"] = new_total
+                conversation.cart = cart
+                
+                yield {
+                    "type": "tool_call",
+                    "agent": "DiscoveryAgent",
+                    "tool": "add_to_cart",
+                    "tool_display": "Add to Cart",
+                    "args": {"product_name": p_name, "price": p_price},
+                    "content": f"Adding `{p_name}` (₹{p_price:.0f}) to cart...",
+                }
+                yield {
+                    "type": "tool_result",
+                    "agent": "DiscoveryAgent",
+                    "tool": "add_to_cart",
+                    "summary": f"Added 1x {p_name} to cart. Total: ₹{new_total:.0f}",
+                    "data": {"cart_total": new_total, "items_count": len(current_items)},
+                }
+                
+                final_text = f"Added **{p_name}** (₹{p_price:.0f}) to your cart! 🛒\n\nYour cart total is **₹{new_total:.0f}**. Would you like to add anything else or proceed to checkout with Razorpay?"
+                cart_items_list = [
+                    CartItem(
+                        product_id=uuid.UUID(i["product_id"]) if isinstance(i["product_id"], str) else i["product_id"],
+                        name=i["name"],
+                        price=i["price"],
+                        quantity=i.get("quantity", 1),
+                    )
+                    for i in current_items
+                ]
+                
+                yield {
+                    "type": "answer",
+                    "agent": "DiscoveryAgent",
+                    "content": final_text,
+                    "chat_response": ChatResponse(
+                        conversation_id=conversation.id,
+                        merchant_id=None,
+                        merchant_name=None,
+                        message=final_text,
+                        recommendations=None,
+                        cart=cart_items_list,
+                        cart_total=float(new_total),
+                        action="cart_update",
+                        payment_link=None,
+                        agent_reasoning=conversation.agent_reasoning if conversation.agent_reasoning else None,
+                    ).model_dump(mode="json"),
+                }
+                return
+
         recommendations: list[ProductRecommendation] = []
         action_type = "chat"
         payment_link: str | None = None
@@ -651,7 +789,7 @@ class DiscoveryAgent:
                             {"name": p["name"], "price": p["price"], "merchant_name": p.get("merchant_name", "")}
                             for p in spec_products
                         ],
-                        "instruction": f"Found {len(spec_products)} matching items for '{spec_kw}'. Provide a concise 2-sentence conversational response presenting these options with prices and asking which one to order.",
+                        "instruction": f"Found {len(spec_products)} matching items for '{spec_kw}'. Present these options in an appetizing, beautifully formatted Markdown comparison table with columns (#, Store, Dish, Style/Notes, Price in ₹). Mention budget guardrails and provide clear numbered options (e.g. '1. Order X', '2. Order Y') for quick checkout.",
                     }),
                 })
 
@@ -667,8 +805,8 @@ class DiscoveryAgent:
                     messages=llm_messages,
                     tools=DISCOVERY_TOOLS if not spec_products else None,
                     tool_choice="auto" if not spec_products else "none",
-                    temperature=0.2,
-                    max_tokens=300,
+                    temperature=0.25,
+                    max_tokens=500,
                 )
                 response_msg = response.choices[0].message
                 tool_calls = getattr(response_msg, "tool_calls", None)

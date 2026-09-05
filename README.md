@@ -490,6 +490,74 @@ pytest tests/ -v --tb=short
 
 ---
 
+## 🔄 Enterprise CI/CD Pipeline
+
+MerchantMind implements a multi-stage production CI/CD workflow defined in [`.github/workflows/ci.yml`](file:///.github/workflows/ci.yml) that gates every pull request and push to `main`:
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                                GITHUB ACTIONS WORKFLOW                                 │
+│                                                                                        │
+│   [ 1. Security Scan ]       [ 2. Backend CI ]       [ 3. Frontend CI ]   [ 4. Deploy] │
+│   ├─ Gitleaks Secrets        ├─ Ruff Lint & Format   ├─ ESLint Checks     └─ Netlify   │
+│   ├─ pip-audit (CVEs)        ├─ Live PostgreSQL 16   ├─ TypeScript Check     Edge CDN  │
+│   └─ npm audit (Critical)    ├─ Live Redis 7         └─ Next.js 16 Build               │
+│                              └─ 151 Pytests + Cov                                      │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+1. **Security & Secret Audit Job**:
+   - **Gitleaks v2**: Scans commit history and active diffs for accidental API key or private secret commits.
+   - **pip-audit**: Scans Python dependencies against the PyPI Advisory Database for known CVEs.
+   - **npm audit**: Fails on any critical vulnerabilities across the frontend dependency graph.
+2. **Backend CI Job with Live Service Containers**:
+   - Spawns live `postgres:16-alpine` and `redis:7-alpine` Docker service containers inside GitHub Actions runner.
+   - Executes **Ruff** for high-speed PEP8 linting and code formatting checks.
+   - Runs the full **151-test pytest suite** with `pytest-cov` to enforce test coverage thresholds before merge.
+3. **Frontend CI Job**:
+   - Runs ESLint validation across Next.js 16 App Router components.
+   - Performs strict TypeScript type checking (`tsc --noEmit`) to catch type drifts before compilation.
+   - Executes a production build (`npm run build`) to ensure zero SSR hydration or bundle errors.
+4. **Continuous Edge Deployment**:
+   - Passes clean artifacts to Netlify Edge CDN for instant automatic preview and production deployments.
+
+---
+
+## ⚡ Scalability, Concurrency & Load Testing
+
+MerchantMind is engineered to handle high-concurrency flash sales, unbatched multi-agent queries, and burst checkouts without deadlocks or stock overselling.
+
+### k6 Performance & Stress Testing Suite
+
+The system includes a production load test harness in [`load_test.js`](file:///load_test.js) simulating realistic customer behavior:
+
+```bash
+# Execute 300 VU sustained load + 50 VU burst checkout stress test
+k6 run load_test.js
+```
+
+| Scenario | Virtual Users (VUs) | Duration | Load Pattern | Target Threshold |
+|---|:---:|:---:|---|---|
+| **Sustained Chat & Discovery** | **300 VUs** | 5 minutes | Ramp from 10 ➔ 300 VUs exploring catalogs & reasoning | `p(95) < 800ms` (non-LLM) |
+| **Burst Checkout Stress** | **50 Concurrent VUs** | 1 minute | Concurrent checkout requests against constrained stock units | `error_rate < 1.0%` |
+| **End-to-End Latency Target** | — | — | Overall system p95 across all endpoints | `p(95) < 2500ms` |
+
+### Architectural Scalability Levers
+
+1. **Pessimistic Concurrency & Stock Locks**:
+   - Checkout uses `SELECT ... FOR UPDATE` inside SQLAlchemy async sessions. Competing transactions wait for lock release rather than reading stale dirty state, completely eliminating race conditions and negative inventory drift.
+2. **N+1 Catalog Query Elimination (10.6s ➔ 611ms)**:
+   - Replaced 192 separate SQL queries across merchants, categories, and items with a single aggregated PostgreSQL `json_agg` query backed by an in-memory 5-minute TTL cache.
+3. **Asynchronous Connection Pooling**:
+   - **Database**: PostgreSQL engine configured with `asyncpg` connection pool (`pool_size=20`, `max_overflow=10`).
+   - **Voice Engine**: Persistent HTTP/2 connection pooling with `httpx.Limits(max_keepalive_connections=20, max_connections=50)` eliminating TCP/TLS handshake latency on voice turns.
+4. **Redis Sliding-Window Rate Limiting**:
+   - Distributed sliding-window counter tracking client requests per minute (`100 req/min`), with multi-hop `X-Forwarded-For` proxy parsing for accurate IP isolation.
+5. **Circuit Breaker & Fallback**:
+   - Wraps Groq LLM inference with an automatic circuit breaker that fails over from Llama 3.3 70B to Llama 3.1 8B with exponential backoff on transient upstream timeouts.
+
+---
+
 ## 📡 API Reference
 
 ### Conversational Commerce & AI

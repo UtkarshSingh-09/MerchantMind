@@ -299,7 +299,7 @@ export default function ChatPage() {
     if (activeOrderId) return activeOrderId;
 
     if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("merchantmind_active_order_id");
+      const stored = localStorage.getItem("merchantmind_last_order_id") || localStorage.getItem("merchantmind_active_order_id");
       if (stored) return stored;
     }
 
@@ -321,13 +321,19 @@ export default function ChatPage() {
     return null;
   };
 
-  // Restore persisted active order from localStorage on mount
+  // On mount: migrate any legacy active order to last_order_id and handle ?new=true to prevent stuck redirect loops
   useEffect(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("merchantmind_active_order_id");
-      if (saved && !activeOrderId) {
-        setActiveOrderId(saved);
-        activeOrderIdRef.current = saved;
+      if (saved) {
+        localStorage.setItem("merchantmind_last_order_id", saved);
+        localStorage.removeItem("merchantmind_active_order_id");
+      }
+
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("new") === "true") {
+        handleNewSession();
+        window.history.replaceState({}, "", "/chat");
       }
     }
   }, []);
@@ -434,9 +440,9 @@ export default function ChatPage() {
     ]);
   }, []);
 
-  // Poll order status if active order is pending
+  // Poll order status if active order is pending AND actively awaiting payment with a live payment link
   useEffect(() => {
-    if (!activeOrderId || orderPaid) return;
+    if (!activeOrderId || orderPaid || !activePaymentLink) return;
 
     const interval = setInterval(async () => {
       try {
@@ -444,12 +450,14 @@ export default function ChatPage() {
         if (statusRes && statusRes.status === "paid") {
           setOrderPaid(true);
           setActivePaymentLink(null);
-          setActiveOrderId(activeOrderId);
-          activeOrderIdRef.current = activeOrderId;
-          if (typeof window !== "undefined" && activeOrderId) {
-            localStorage.setItem("merchantmind_active_order_id", activeOrderId);
-          }
+          activePaymentLinkRef.current = null;
           const targetOrdId = activeOrderId;
+          setActiveOrderId(targetOrdId);
+          activeOrderIdRef.current = targetOrdId;
+          if (typeof window !== "undefined" && targetOrdId) {
+            localStorage.setItem("merchantmind_last_order_id", targetOrdId);
+            localStorage.removeItem("merchantmind_active_order_id");
+          }
           showToast("Payment confirmed! Taking you to Live Tracking... 🚀", "success");
           
           if (voiceManager.isVoiceMode() || isVoiceMode) {
@@ -479,7 +487,7 @@ export default function ChatPage() {
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [activeOrderId, orderPaid, selectedMerchant, isVoiceMode]);
+  }, [activeOrderId, orderPaid, activePaymentLink, selectedMerchant, isVoiceMode, router]);
 
   // Dynamically load Razorpay standard checkout script
   const loadRazorpayScript = (): Promise<boolean> => {
@@ -599,10 +607,12 @@ export default function ChatPage() {
           );
           setOrderPaid(true);
           setActivePaymentLink(null);
+          activePaymentLinkRef.current = null;
           setActiveOrderId(targetOrderId);
           activeOrderIdRef.current = targetOrderId;
           if (typeof window !== "undefined" && targetOrderId) {
-            localStorage.setItem("merchantmind_active_order_id", targetOrderId);
+            localStorage.setItem("merchantmind_last_order_id", targetOrderId);
+            localStorage.removeItem("merchantmind_active_order_id");
           }
           setCart({ items: [], total: 0 });
           showToast("Payment confirmed! Taking you to Live Tracking... 🚀", "success");
@@ -1098,7 +1108,9 @@ export default function ChatPage() {
   }
 
   // Keep handleSendMessageRef always synchronized so first voice command triggers immediately
-  handleSendMessageRef.current = handleSendMessage;
+  useEffect(() => {
+    handleSendMessageRef.current = handleSendMessage;
+  }, [handleSendMessage]);
 
   // Initialize Voice Manager callbacks
   useEffect(() => {
@@ -1401,6 +1413,9 @@ export default function ChatPage() {
     setActivePaymentLink(null);
     activePaymentLinkRef.current = null;
     setOrderPaid(false);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("merchantmind_active_order_id");
+    }
     if (selectedMerchant) {
       setMessages([
         {
@@ -1413,7 +1428,7 @@ export default function ChatPage() {
       setMessages([
         {
           role: "assistant",
-          content: `New session started. Ask for any item or budget constraint across all stores.`,
+          content: `Welcome to **MerchantMind**!\n\nTell me what you're looking for and your budget (e.g. *"Birthday cake under ₹700"* or *"Weekly groceries"*). I'll scan live catalogs across all stores and guide you to seamless checkout with Razorpay.`,
           timestamp: new Date().toISOString(),
         },
       ]);

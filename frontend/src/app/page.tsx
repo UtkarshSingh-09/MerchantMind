@@ -29,6 +29,9 @@ export default function HomePage() {
   const handleConnectVault = () => {
     setShowVaultModal(false);
     setShowPresentationModal(false);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("merchantmind_active_order_id");
+    }
     setIsWarping(true);
   };
 
@@ -213,7 +216,7 @@ export default function HomePage() {
       {/* ========================================================================= */}
       <LightRayWarp
         active={isWarping}
-        destination="/chat"
+        destination="/chat?new=true"
       />
 
       {/* ========================================================================= */}

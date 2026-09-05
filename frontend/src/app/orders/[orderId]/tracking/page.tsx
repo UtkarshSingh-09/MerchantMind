@@ -859,7 +859,7 @@ export default function OrderTrackingPage({ params }: TrackingPageProps) {
           {error || "We couldn't locate this order. It might still be processing."}
         </p>
         <Link
-          href="/chat"
+          href="/chat?new=true"
           className="mt-6 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-semibold text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 transition active:scale-95"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -903,9 +903,9 @@ export default function OrderTrackingPage({ params }: TrackingPageProps) {
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3">
             <Link
-              href="/chat"
+              href="/chat?new=true"
               className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.04] border border-white/[0.08] text-zinc-400 hover:text-white hover:border-white/[0.2] hover:bg-white/[0.08] transition active:scale-95"
-              title="Back to Chat"
+              title="Back to Chat (New Order)"
             >
               <ArrowLeft className="h-4 w-4" />
             </Link>
@@ -944,8 +944,8 @@ export default function OrderTrackingPage({ params }: TrackingPageProps) {
               <span>{copied ? "Copied" : "Order ID"}</span>
             </button>
             <Link
-              href="/chat"
-              className="hidden sm:flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 border border-indigo-400/30 px-3.5 py-1.5 text-xs font-bold text-white transition shadow-lg shadow-indigo-600/30 active:scale-95"
+              href="/chat?new=true"
+              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 border border-indigo-400/30 px-3.5 py-1.5 text-xs font-bold text-white transition shadow-lg shadow-indigo-600/30 active:scale-95"
             >
               <ShoppingBag className="h-3.5 w-3.5" />
               <span>New Order</span>
@@ -1853,11 +1853,11 @@ function BottomActions() {
   return (
     <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
       <Link
-        href="/chat"
+        href="/chat?new=true"
         className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 border border-indigo-400/30 px-6 py-3 text-xs font-bold text-white shadow-lg shadow-indigo-600/30 transition active:scale-95"
       >
         <MessageSquare className="h-4 w-4" />
-        <span>Chat with Concierge / Reorder</span>
+        <span>Chat with Concierge / New Order</span>
       </Link>
       <button
         onClick={() => window.print()}

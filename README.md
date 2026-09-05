@@ -21,15 +21,17 @@
 
 **Track 01 · AI Growth & Agentic Commerce · Razorpay AI Buildathon 2026**
 
-[![Live Demo](https://img.shields.io/badge/Live_Demo-Explore_Platform-00C7B7?style=for-the-badge&logo=netlify&logoColor=white&labelColor=18181b)](https://merchantmind-ai.netlify.app)
-&nbsp;
-[![Architecture](https://img.shields.io/badge/Architecture-System_Design-F59E0B?style=for-the-badge&logo=gitbook&logoColor=white&labelColor=18181b)](ARCHITECTURE.md)
-&nbsp;
-[![Problems Log](https://img.shields.io/badge/Problems_Log-16_Solved-EF4444?style=for-the-badge&logo=target&logoColor=white&labelColor=18181b)](docs/problems.md)
-&nbsp;
-[![Report Bug](https://img.shields.io/badge/Report_Bug-New_Issue-10B981?style=for-the-badge&logo=github&logoColor=white&labelColor=18181b)](https://github.com/UtkarshSingh-09/MerchentMind-/issues/new?template=bug_report.md)
-&nbsp;
-[![Request Feature](https://img.shields.io/badge/Request_Feature-Submit_Idea-8B5CF6?style=for-the-badge&logo=github&logoColor=white&labelColor=18181b)](https://github.com/UtkarshSingh-09/MerchentMind-/issues/new?template=feature_request.md)
+<br/>
+
+[![Launch Live Demo](https://img.shields.io/badge/🚀_CLICK_TO_LAUNCH_LIVE_DEMO-merchantmind--ai.netlify.app_↗-00C7B7?style=for-the-badge&logo=netlify&logoColor=white&labelColor=0f172a)](https://merchantmind-ai.netlify.app)
+
+<br/><br/>
+
+| 🌐 Live Storefront | 📖 System Blueprint | 🔴 16 Solved Issues | 🐛 Report Bug | 💡 Propose Feature |
+| :---: | :---: | :---: | :---: | :---: |
+| [**👉 Launch Web App ↗**](https://merchantmind-ai.netlify.app) | [**👉 View Architecture ↗**](ARCHITECTURE.md) | [**👉 Read Problems Log ↗**](docs/problems.md) | [**👉 Open Issue Ticket ↗**](https://github.com/UtkarshSingh-09/MerchentMind-/issues/new?template=bug_report.md) | [**👉 Submit Feature Idea ↗**](https://github.com/UtkarshSingh-09/MerchentMind-/issues/new?template=feature_request.md) |
+
+<br/>
 
 ---
 

@@ -64,6 +64,11 @@ class Settings(BaseSettings):
     def resolved_database_url(self) -> str:
         import os
         url = self.database_url
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+        elif url.startswith("postgresql://") and "+asyncpg" not in url:
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
         is_docker = os.path.exists("/.dockerenv") or os.environ.get("RUNNING_IN_DOCKER")
         if is_docker and "@localhost:" in url:
             return url.replace("@localhost:5432", "@postgres:5432")

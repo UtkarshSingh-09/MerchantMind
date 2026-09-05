@@ -37,7 +37,7 @@ export function ChatInput({
 
   // Sync live speech transcript to input field
   useEffect(() => {
-    if (liveTranscript) {
+    if (liveTranscript !== undefined) {
       setInput(liveTranscript);
     }
   }, [liveTranscript]);

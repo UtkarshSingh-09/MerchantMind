@@ -260,7 +260,7 @@ class VoiceManager {
       }
 
       this.silenceTimer = setTimeout(() => {
-        if (this.currentTranscript.trim().length > 2 && this.isVoiceModeEnabled) {
+        if (this.currentTranscript.trim().length >= 2 && this.isVoiceModeEnabled) {
           const toSend = this.currentTranscript.trim();
           this.currentTranscript = "";
           this.setState("thinking");

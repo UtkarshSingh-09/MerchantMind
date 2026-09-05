@@ -717,16 +717,21 @@ export default function OrderTrackingPage({ params }: TrackingPageProps) {
     ]
   );
 
+  const handleVoiceCommandRef = useRef(handleVoiceCommand);
+  useEffect(() => {
+    handleVoiceCommandRef.current = handleVoiceCommand;
+  });
+
   useEffect(() => {
     voiceManager.init({
       onTranscript: (transcript: string, isFinal: boolean) => {
         setVoiceTranscript(transcript);
         if (isFinal) {
-          handleVoiceCommand(transcript);
+          handleVoiceCommandRef.current(transcript);
         }
       },
       onAutoSubmit: (transcript: string) => {
-        handleVoiceCommand(transcript);
+        handleVoiceCommandRef.current(transcript);
       },
       onStateChange: (state: VoiceState) => {
         setVoiceState(state);
@@ -737,7 +742,7 @@ export default function OrderTrackingPage({ params }: TrackingPageProps) {
       voiceManager.toggleVoiceMode(false);
       voiceManager.stopSpeaking();
     };
-  }, [handleVoiceCommand]);
+  }, []);
 
   // 4. Auto-arm if URL query has ?alarm=true (e.g. from chat voice command)
   useEffect(() => {
@@ -818,9 +823,9 @@ export default function OrderTrackingPage({ params }: TrackingPageProps) {
       setVoiceFeedback("Voice assistant paused. Tap mic to activate.");
     } else {
       setVoiceTranscript("");
-      setVoiceFeedback("🟢 Listening for your voice questions...");
+      setVoiceFeedback("🟢 Listening for your voice questions (e.g. 'Where is driver?')...");
       voiceManager.toggleVoiceMode(true);
-      voiceManager.speak("MerchantMind voice assistant activated. You can order using voice.");
+      voiceManager.speak("I'm listening! Ask me where your order is, or say 'set arrival alarm'.");
     }
   };
 

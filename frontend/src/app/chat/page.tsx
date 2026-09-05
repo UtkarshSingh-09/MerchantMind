@@ -1097,16 +1097,20 @@ export default function ChatPage() {
     }
   }
 
+  // Keep handleSendMessageRef always synchronized so first voice command triggers immediately
+  handleSendMessageRef.current = handleSendMessage;
+
   // Initialize Voice Manager callbacks
   useEffect(() => {
+    handleSendMessageRef.current = handleSendMessage;
     voiceManager.init({
       onTranscript: (transcript: string, isFinal: boolean) => {
         setLiveTranscript(transcript);
-        if (isFinal) {
+        if (isFinal && transcript.trim()) {
           const t = transcript.toLowerCase().trim();
           const WAKE_WORD_REGEX =
-            /^(?:(?:hey|hi|hello|ok|okay)\s+)?(?:merchant\s*mind|merchantmind|merchants\s*mind|mercanhtmind|mercanht\s*mind|merchant\s*mine|merchant)\b[,\s]*$/i;
-          if (WAKE_WORD_REGEX.test(t)) {
+            /^(?:(?:hey|hi|hello|ok|okay)\s+)?(?:merchant\s*mind|merchantmind|merchants\s*mind|mercanhtmind|mercanht\s*mind|merchant\s*mine|merchant)\b[,\s]*/i;
+          if (WAKE_WORD_REGEX.test(t) || isVoiceModeRef.current || voiceManager.isVoiceMode()) {
             setLiveTranscript("");
             handleSendMessageRef.current(transcript);
           }

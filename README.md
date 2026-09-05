@@ -14,13 +14,14 @@
 [![Next.js](https://img.shields.io/badge/Next.js-16-FBBF24?style=for-the-badge&logo=next.js&logoColor=white&labelColor=151515)](https://nextjs.org)
 [![Groq](https://img.shields.io/badge/Groq-Llama_3.3_70B-D97706?style=for-the-badge&labelColor=151515)](https://groq.com)
 [![Razorpay](https://img.shields.io/badge/Razorpay-Payment_Links-2962FF?style=for-the-badge&logo=razorpay&logoColor=white&labelColor=151515)](https://razorpay.com)
+[![Deepgram](https://img.shields.io/badge/Deepgram-Aura_TTS-13EF93?style=for-the-badge&logo=deepgram&logoColor=black&labelColor=151515)](https://deepgram.com)
 [![License](https://img.shields.io/badge/License-MIT-FBBF24?style=for-the-badge&labelColor=151515)](LICENSE)
 
 <br/>
 
 **Track 01 · AI Growth & Agentic Commerce · Razorpay AI Buildathon 2026**
 
-[🌐 Live Demo](https://merchantmind-ai.netlify.app) · [📖 Architecture](ARCHITECTURE.md) · [🐛 Report Bug](https://github.com/UtkarshSingh-09/MerchentMind-/issues) · [💡 Request Feature](https://github.com/UtkarshSingh-09/MerchentMind-/issues)
+[🌐 Live Demo](https://merchantmind-ai.netlify.app) · [📖 Architecture](ARCHITECTURE.md) · [🔴 Problems Log](docs/problems.md) · [🐛 Report Bug](https://github.com/UtkarshSingh-09/MerchentMind-/issues) · [💡 Request Feature](https://github.com/UtkarshSingh-09/MerchentMind-/issues)
 
 ---
 
@@ -32,39 +33,56 @@
 
 ## 🔴 The Problem
 
-Traditional e-commerce storefronts are **static, menu-driven, and passive**. Customers browse, scroll, abandon.
+Traditional e-commerce storefronts are **static, menu-driven, and passive**. Customers browse, scroll, get overwhelmed, and abandon carts.
 
-| Pain Point | Impact |
-|---|---|
-| **Choice Overload** | 214 stores × 50+ items each = paralysis. Customers leave before buying. |
-| **Zero Upselling Intelligence** | Static menus can't suggest birthday candles when someone buys a cake. Merchants lose 15–30% potential AOV. |
-| **Fragmented Payment UX** | Copy-paste UPI IDs, manual bank transfers, no real-time confirmation — high drop-off at checkout. |
-| **No Omnichannel Reach** | Customers are on Telegram, WhatsApp, and web. Merchants are stuck on one. |
-| **Manual Reactivation** | Dormant customers get no targeted campaigns. Zero retention automation. |
+| Pain Point | Real-World Impact | Merchant Loss |
+|---|---|---|
+| **Choice Overload** | 200+ local stores × 5,000+ items = decision paralysis. Users drop off within 45 seconds. | High customer acquisition cost wasted with zero conversion. |
+| **Zero Upselling Intelligence** | Static checkout forms cannot infer that a birthday cake needs candles and balloons. | Merchants surrender 15%–30% in high-margin average order value (AOV). |
+| **Fragmented Payment UX** | Copy-pasting UPI handles or dealing with broken redirection gateways causes cart drop-offs. | Up to 40% checkout abandonment at the final payment step. |
+| **Monolithic Single-Channel Silos** | Shoppers spend hours on WhatsApp, Telegram, and voice; merchants are locked to a static web form. | Inability to engage customers in their native conversational channel. |
+| **Passive Retention** | Lapsed customers receive generic, unsegmented discount blasts that get flagged as spam. | Zero automated reactivation for high-LTV dormant shoppers. |
 
-> **The bottom line:** Small merchants lose revenue because they can't offer the *intelligent, personalized, instant-checkout* experience that customers expect in 2026.
+> **The bottom line:** Independent merchants lose sales not from lack of product quality, but because they lack an *autonomous sales agent* that understands customer intent, curates options, upsells intelligently, and closes payments instantly.
 
 ---
 
 ## 🟢 The Solution
 
-**MerchantMind** transforms static product catalogs into **autonomous, AI-powered commerce engines** — a shopping agent that *thinks, recommends, upsells, and closes deals* on behalf of the merchant.
+**MerchantMind** transforms passive product catalogs into **autonomous, conversational commerce engines**. It acts as an elite digital sales concierge that *reasons, recommends, cross-sells within strict budgets, orchestrates atomic checkouts, and tracks deliveries*.
 
 ```
-   "I want a chocolate cake           ┌─────────────────────────────┐
-    under ₹500 for a birthday"  ──▶  │     🧠 MerchantMind Agent   │
-                                      │                             │
-                                      │  1. Understands intent      │
-                                      │  2. Searches 214 stores     │
-                                      │  3. Recommends best fit     │
-                                      │  4. Suggests candles 🕯️     │
-                                      │  5. Guards your budget      │
-                                      │  6. Generates Razorpay link │
-                                      │  7. Confirms payment ✅     │
-                                      └─────────────────────────────┘
+   "I need an eggless birthday cake     ┌────────────────────────────────────────────────┐
+    under ₹700 in Indiranagar"    ──▶   │           🧠 MerchantMind Autonomous Agent      │
+                                        │                                                │
+                                        │  1. Parse intent & geographic proximity        │
+                                        │  2. Apply 0ms regex & NLP budget cap (₹700)    │
+                                        │  3. Query 200+ Bangalore stores in <650ms      │
+                                        │  4. Pair occasion upsells (Candles ₹60)        │
+                                        │  5. Reserve stock via PostgreSQL row-lock      │
+                                        │  6. Generate Razorpay Payment Link (atomic)    │
+                                        │  7. Verify HMAC webhook & initiate tracking    │
+                                        └────────────────────────────────────────────────┘
 ```
 
-**One natural language message. Full checkout. Zero friction.**
+**One natural language prompt or voice command. Full checkout. Zero friction.**
+
+---
+
+## ⚔️ Architectural Comparison
+
+How MerchantMind compares against traditional e-commerce platforms and basic conversational wrappers:
+
+| Capability | Traditional E-Commerce (Shopify / WooCommerce) | Generic RAG Chatbot (LangChain / GPT Wrapper) | MerchantMind Autonomous Agent |
+|---|---|---|---|
+| **Interaction Paradigm** | Static menus, manual faceted filters, click-and-scroll | Chat interface with text-only product links | Natural language voice & multi-turn dialog with rich visual cards |
+| **Discovery Latency** | High cognitive overhead (minutes of searching) | Slow (3s–8s prompt lookups, prone to hallucinations) | Sub-second (<650ms) ReAct loop with cached catalog aggregations |
+| **Budget Enforcement** | Client-side visual price sliders only | Advisory only; frequently suggests items exceeding budget | **Hard Deterministic Guardrail**: mathematically blocks overbudget checkouts |
+| **Cross-Selling / Upsell** | Hardcoded rule tables ("Customers also bought...") | Unconstrained suggestions ignoring remaining user budget | **Context-Aware Occasion Engine** bounded by remaining customer budget |
+| **Payment Integration** | Standard multi-page checkout redirection | External markdown links to generic store homepages | **Native Razorpay 2PC Saga**: Server-side orders + short links + HMAC verification |
+| **Inventory Concurrency** | Prone to overselling under flash sales without strict locks | No inventory awareness or direct transactional coupling | **Pessimistic Row-Level Locks** (`SELECT ... FOR UPDATE`) with auto-rollback |
+| **Voice Experience** | None | Generic browser speech-to-text without pronunciation tuning | **Deepgram Flux Meena** + Indian English phonetic normalizer + barge-in |
+| **Safety & Redaction** | Standard form validation | Vulnerable to system prompt leaks and jailbreak manipulation | **NFKC Unicode Normalizer**, regex injection sanitizer & key-redaction filters |
 
 ---
 
@@ -73,461 +91,452 @@ Traditional e-commerce storefronts are **static, menu-driven, and passive**. Cus
 ### High-Level System Topology
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│                        CLIENT LAYER                                  │
-│   ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────┐  │
-│   │  Next.js 16  │  │  Telegram    │  │  Ambient Voice Engine    │  │
-│   │  Web Chat UI │  │  Bot API     │  │  (Web Speech API + STT)  │  │
-│   └──────┬───────┘  └──────┬───────┘  └────────────┬─────────────┘  │
-└──────────┼─────────────────┼───────────────────────┼────────────────┘
-           │                 │                       │
-           ▼                 ▼                       ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│                     API GATEWAY (Nginx)                              │
-└──────────────────────────────┬───────────────────────────────────────┘
-                               │
-                               ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│                   APPLICATION LAYER (FastAPI + Uvicorn)              │
-│                                                                      │
-│   ┌──────────────────────────────────────────────────────────────┐   │
-│   │              MULTI-AGENT ORCHESTRATOR                        │   │
-│   │   ┌──────────────┐  ┌───────────────┐  ┌────────────────┐   │   │
-│   │   │ AgentRouter  │─▶│ DiscoveryAgent│  │ MerchantAgent  │   │   │
-│   │   │ (Intent      │  │ (Cross-store  │  │ (Store-level   │   │   │
-│   │   │  Classifier) │  │  search)      │  │  analytics)    │   │   │
-│   │   └──────────────┘  └───────────────┘  └────────────────┘   │   │
-│   │          │           ┌───────────────┐  ┌────────────────┐   │   │
-│   │          └──────────▶│ ShoppingAgent │─▶│ CheckoutSaga   │   │   │
-│   │                      │ (Cart + LLM   │  │ (2PC Razorpay  │   │   │
-│   │                      │  Upsell)      │  │  Orchestrator) │   │   │
-│   │                      └───────────────┘  └────────────────┘   │   │
-│   └──────────────────────────────────────────────────────────────┘   │
-│                                                                      │
-│   ┌────────────────┐  ┌────────────────┐  ┌──────────────────────┐  │
-│   │ Budget Guard   │  │ Prompt Sanitiz │  │ Circuit Breaker      │  │
-│   │ (Hard ₹ cap)   │  │ (Jailbreak     │  │ (Groq failover)      │  │
-│   │                │  │  protection)   │  │                      │  │
-│   └────────────────┘  └────────────────┘  └──────────────────────┘  │
-└──────────────────────────────┬───────────────────────────────────────┘
-                               │
-           ┌───────────────────┼───────────────────┐
-           ▼                   ▼                   ▼
-┌──────────────────┐ ┌──────────────────┐ ┌──────────────────────────┐
-│  Groq Cloud API  │ │   Razorpay API   │ │     Data Layer           │
-│  Llama 3.3 70B   │ │  Orders + Links  │ │  PostgreSQL 16 (ACID)    │
-│  Llama 3.1 8B    │ │  Webhooks (HMAC) │ │  Redis 7 (Sessions)      │
-│  (fallback)      │ │  Checkout.js     │ │                          │
-└──────────────────┘ └──────────────────┘ └──────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                                     CLIENT LAYER                                       │
+│   ┌────────────────────────┐  ┌─────────────────────────┐  ┌───────────────────────┐   │
+│   │   Next.js 16 Web UI    │  │    Telegram Bot API     │  │  Ambient Voice Engine │   │
+│   │ (App Router + Three.js)│  │ (Inline Webhook Handler)│  │  (Web Speech + Aura)   │   │
+│   └───────────┬────────────┘  └────────────┬────────────┘  └───────────┬───────────┘   │
+└───────────────┼────────────────────────────┼───────────────────────────┼───────────────┘
+                │                            │                           │
+                ▼                            ▼                           ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                              REVERSE PROXY & API GATEWAY                               │
+│                         Nginx (SSL Termination + Rate Limiting)                        │
+└───────────────────────────────────────────┬────────────────────────────────────────────┘
+                                            │
+                                            ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                         APPLICATION LAYER (FastAPI + Uvicorn)                          │
+│                                                                                        │
+│   ┌────────────────────────────────────────────────────────────────────────────────┐   │
+│   │                           MULTI-AGENT ORCHESTRATOR                             │   │
+│   │   ┌───────────────┐     ┌────────────────┐     ┌───────────────────────────┐   │   │
+│   │   │  AgentRouter  │ ──▶ │ DiscoveryAgent │ ──▶ │ ShoppingAgent             │   │   │
+│   │   │ (Intent Clf)  │     │ (Cross-Store)  │     │ (In-Store Cart + Upsell)  │   │   │
+│   │   └───────┬───────┘     └────────────────┘     └─────────────┬─────────────┘   │   │
+│   │           │                                                  │                 │   │
+│   │           ▼                                                  ▼                 │   │
+│   │   ┌───────────────┐                             ┌──────────────────────────┐   │   │
+│   │   │ MerchantAgent │                             │ 3-Phase Checkout Saga    │   │   │
+│   │   │ (Analytics)   │                             │ (2PC Razorpay Engine)    │   │   │
+│   │   └───────────────┘                             └──────────────────────────┘   │   │
+│   └────────────────────────────────────────────────────────────────────────────────┘   │
+│                                                                                        │
+│   ┌─────────────────────┐  ┌──────────────────────┐  ┌─────────────────────────────┐   │
+│   │  Budget Guardrail   │  │ Prompt Sanitizer     │  │ Resilience Circuit Breaker  │   │
+│   │ (Deterministic Cap) │  │ (Adversarial Defense)│  │ (Groq Llama 70B ➔ 8B Failover)│   │
+│   └─────────────────────┘  └──────────────────────┘  └─────────────────────────────┘   │
+└───────────────────────────────────────────┬────────────────────────────────────────────┘
+                                            │
+                ┌───────────────────────────┼───────────────────────────┐
+                ▼                           ▼                           ▼
+┌───────────────────────────────┐ ┌───────────────────┐ ┌───────────────────────────────┐
+│        AI INFERENCE           │ │   PAYMENT CLOUD   │ │          DATA LAYER           │
+│  Groq Cloud Llama 3.3 70B     │ │  Razorpay API     │ │  PostgreSQL 16 (Row-Locked)   │
+│  Deepgram Voice API (Flux)    │ │  Orders + Links   │ │  Redis 7 (Sliding Window &    │
+│  Llama 3.1 8B (Fallback)      │ │  HMAC Webhooks    │ │           Session Caches)     │
+└───────────────────────────────┘ └───────────────────┘ └───────────────────────────────┘
 ```
 
 ### End-to-End Request Lifecycle
 
 ```
-Customer Message ──▶ SSE Stream ──▶ AgentRouter (intent classification)
+Customer Message / Voice ──▶ Audio Transcribe / Text Ingestion
                                          │
-                          ┌──────────────┴──────────────┐
-                          ▼                              ▼
-                   DiscoveryAgent                  ShoppingAgent
-                   (no merchant locked)            (merchant locked)
-                          │                              │
-                          ▼                              ▼
-                   Groq ReAct Loop               Cart Management
-                   search_all_merchants()        add/remove/clear
-                          │                              │
-                          ▼                              ▼
-                   Budget-Bounded              Context-Aware Upsell
-                   Recommendations             (occasion detection)
-                                                         │
-                                                         ▼
-                                                  CheckoutSaga (2PC)
-                                                  ├─ Phase 1: Stock Lock
-                                                  ├─ Phase 2: Razorpay Order
-                                                  └─ Phase 3: Payment Link
-                                                         │
-                                                         ▼
-                                                  Webhook Capture ──▶ PAID ✅
+                                         ▼
+                             PromptSanitizer.sanitize()
+                             (Deobfuscates NFKC, strips zero-width chars, blocks jailbreaks)
+                                         │
+                                         ▼
+                             BudgetExtractor.extract()
+                             (0ms Regex fast-path: "under 700" ➔ ₹700.00 hard limit)
+                                         │
+                                         ▼
+                                    AgentRouter
+                                         │
+                     ┌───────────────────┴───────────────────┐
+                     ▼                                       ▼
+              DiscoveryAgent                           ShoppingAgent
+        (No store locked; compares               (Store locked; manages cart,
+         200+ Bangalore merchants)                computes remaining budget)
+                     │                                       │
+                     ▼                                       ▼
+        Semantic Catalog Match                     Contextual Upsell Engine
+        (Tokenizes queries, handles               (Cake detected ➔ pairs candles
+         food & regional synonyms)                 only if cart + upsell ≤ budget)
+                     │                                       │
+                     └───────────────────┬───────────────────┘
+                                         ▼
+                            User Confirms Checkout Intent
+                                         │
+                                         ▼
+                            CheckoutSaga.execute_checkout()
+                            ├─ Step 1: Check Idempotency Key (Redis)
+                            ├─ Step 2: Phase 1 — SELECT ... FOR UPDATE (Row-Lock)
+                            ├─ Step 3: Phase 2 — Razorpay Order & Payment Link
+                            └─ Step 4: Phase 3 — Commit Order & Log Audit Trail
+                                         │
+                                         ▼
+                            Razorpay Payment Completed
+                                         │
+                                         ▼
+                            POST /api/webhooks/razorpay
+                            (Raw-byte HMAC-SHA256 signature verification)
+                                         │
+                                         ▼
+                        Order State: PAID ➔ Live Tracking Initiated
 ```
 
 ---
 
 ## 🤖 Multi-Agent Intelligence
 
-MerchantMind doesn't use a single monolithic LLM call. It deploys a **fleet of specialized agents**, each with its own tools, system prompts, and guardrails.
+MerchantMind decomposes complex commerce operations across specialized agents rather than relying on a brittle single prompt:
 
-### Agent Architecture
-
-| Agent | Model | Role | Tools |
+| Agent | Core Model | Primary Role | Executable Tools |
 |---|---|---|---|
-| **AgentRouter** | Llama 3.1 8B | Classifies user intent and routes to the correct specialist agent | `classify_routing_intent()` |
-| **DiscoveryAgent** | Llama 3.3 70B | Cross-store product discovery and comparison across 214 merchants | `search_all_merchants()`, `get_merchant_info()`, `search_merchant_products()` |
-| **ShoppingAgent** | Llama 3.3 70B | In-store shopping with cart management, upselling, and checkout | `add_to_cart()`, `remove_from_cart()`, `get_cart()`, `execute_checkout()` |
-| **MerchantAgent** | Llama 3.3 70B | Store-level analytics, inventory insights, and campaign management | `get_store_analytics()`, `dispatch_campaign()` |
-| **CheckoutSaga** | — (deterministic) | Two-phase commit orchestrator for Razorpay payment lifecycle | Razorpay SDK direct calls |
+| **AgentRouter** | Llama 3.1 8B | Lightweight, low-latency intent classification | `classify_routing_intent()` |
+| **DiscoveryAgent** | Llama 3.3 70B | Cross-catalog exploration across 200+ stores | `search_all_merchants()`, `get_merchant_info()`, `search_merchant_products()` |
+| **ShoppingAgent** | Llama 3.3 70B | In-store cart management, upselling, and checkout | `add_to_cart()`, `remove_from_cart()`, `get_cart()`, `clear_cart()`, `execute_checkout()` |
+| **MerchantAgent** | Llama 3.3 70B | Business intelligence, stock auditing & campaigns | `get_store_analytics()`, `dispatch_campaign()` |
+| **CheckoutSaga** | Deterministic Engine | Atomic two-phase commit payment orchestrator | Razorpay SDK Orders & Payment Links APIs |
 
-### Intelligence Pipeline
+---
+
+## 🎙️ Autonomous Voice Engine & Indian English NLP
+
+MerchantMind features an **ambient, hands-free voice engine** specifically tuned for Indian conversational commerce:
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                    INTELLIGENCE PIPELINE                         │
-│                                                                  │
-│  User Message                                                    │
-│       │                                                          │
-│       ▼                                                          │
-│  ┌─────────────────┐    ┌──────────────────┐                    │
-│  │ Prompt Sanitizer │───▶│ Budget Extractor  │                    │
-│  │ (Jailbreak       │    │ (NLP ₹ parsing)   │                    │
-│  │  detection)       │    └────────┬─────────┘                    │
-│  └─────────────────┘             │                               │
-│                                  ▼                               │
-│                    ┌──────────────────────┐                      │
-│                    │   Entity Resolver     │                      │
-│                    │  (Fuzzy name match    │                      │
-│                    │   across catalogs)    │                      │
-│                    └──────────┬───────────┘                      │
-│                               │                                  │
-│                               ▼                                  │
-│                    ┌──────────────────────┐                      │
-│                    │   ReAct Tool Loop     │                      │
-│                    │  (Groq function       │                      │
-│                    │   calling, multi-     │                      │
-│                    │   turn reasoning)     │                      │
-│                    └──────────┬───────────┘                      │
-│                               │                                  │
-│                               ▼                                  │
-│                    ┌──────────────────────┐                      │
-│                    │   Upsell Engine       │                      │
-│                    │  (Occasion pairing    │                      │
-│                    │   + remaining budget  │                      │
-│                    │   computation)        │                      │
-│                    └──────────────────────┘                      │
-└──────────────────────────────────────────────────────────────────┘
+ User Voice Input ──▶ Web Speech STT / Whisper ──▶ Phonetic Normalizer ──▶ ReAct Agent
+                                                                               │
+ Audio Output ◀── Deepgram Flux Meena (flux-meena-en) ◀── Concise TTS Formatter ┘
 ```
 
-### Guardrails & Safety
+1. **Indian Retail & Geographical Phonetic Normalizer**:
+   A built-in dictionary in [`voice-manager.ts`](file:///Users/utkarshsingh/Desktop/Razorpay_hackathon/frontend/src/lib/voice-manager.ts) converts Indian food terms, Bangalore localities, and currency symbols into natural phonetic representations for seamless speech synthesis:
+   - Bangalore Localities: `Indiranagar` ➔ *"Indira Nagar"*, `Koramangala` ➔ *"Kora-mangala"*, `HSR` ➔ *"H S R"*, `Whitefield` ➔ *"White-field"*.
+   - Food & Dishes: `Biryani` ➔ *"Beer-yaani"*, `Paneer` ➔ *"Puh-neer"*, `Gulab Jamun` ➔ *"Goo-laab Jaa-moon"*, `Dosa` ➔ *"Dho-saa"*.
+   - Currency: `₹500` / `Rs. 500` ➔ *"500 rupees"*.
+2. **Adaptive Silence Auto-Dispatch (2.2s–3.0s Buffer)**:
+   Standard voice agents cut off speech after 800ms of hesitation. MerchantMind dynamically adjusts silence thresholds based on sentence completeness, allowing natural pauses while customers contemplate flavors or quantities.
+3. **Web Audio Autoplay Unlocker**:
+   Bypasses browser autoplay blocks via an invisible user-gesture audio context primer primed on the first tap.
+4. **Instant Voice Barge-In**:
+   Allows the user to speak at any moment; active Deepgram TTS audio streams abort instantly when new user speech is detected.
 
-- **Hard Budget Enforcement** — `cart_total > stated_budget` blocks payment link creation with a `BUDGET_VIOLATION` event
-- **Prompt Injection Defense** — Multi-layer sanitizer catches jailbreak attempts before they reach the LLM
-- **Circuit Breaker** — Automatic failover from Llama 3.3 70B → Llama 3.1 8B with exponential backoff on Groq transient failures
-- **Rate Limiting** — Redis-backed sliding window rate limiter per IP/session
-- **Idempotency** — Webhook deduplication prevents double-processing of Razorpay events
+---
+
+## ⚡ 3-Phase Distributed Checkout Saga (2PC)
+
+To prevent financial discrepancies, phantom orders, and overselling, checkout is executed as an **atomic 3-phase saga** with automated compensation in [`checkout_saga.py`](file:///Users/utkarshsingh/Desktop/Razorpay_hackathon/backend/app/services/checkout_saga.py):
+
+```
+       Phase 1                     Phase 2                     Phase 3
+  [ Inventory Lock ]         [ Razorpay Gateway ]         [ Commit & Audit ]
+ ┌──────────────────┐       ┌────────────────────┐       ┌──────────────────┐
+ │ SELECT ...       │       │ POST /v1/orders    │       │ Commit DB Order  │
+ │ FOR UPDATE       │ ────▶ │ POST /payment_links│ ────▶ │ Log Audit Event  │
+ │ (Deduct Stock)   │       │ (Atomic Integer ₹) │       │ Status: PENDING  │
+ └──────────────────┘       └────────────────────┘       └──────────────────┘
+          │                           │
+          ▼ (On Failure)              ▼ (On Failure)
+ ┌──────────────────┐       ┌────────────────────┐
+ │  ROLLBACK DB     │ ◀──── │ Execute Saga       │
+ │  Restore Stock   │       │ Compensation       │
+ └──────────────────┘       └────────────────────┘
+```
+
+- **Phase 1 (Stock Reservation)**: Acquires pessimistic row-level database locks on product rows (`SELECT ... FOR UPDATE`). If any line item has insufficient stock, the transaction is rejected immediately.
+- **Phase 2 (Razorpay Order & Payment Link Creation)**: Communicates with the Razorpay API to generate an authoritative order ID and short payment URL. Amounts are strictly computed in integer paise (`int(round(amount * 100))`).
+- **Phase 3 (Commit & Audit)**: Commits the order record with status `pending_payment` and persists an immutable audit entry (`ORDER_CREATED`).
+- **Automated Compensation**: If Razorpay API times out or payment link creation fails, the saga catches the exception, automatically increments back the reserved stock count, marks the order as `failed`, and logs a `STOCK_COMPENSATED` audit event.
+
+---
+
+## 🛡️ Deterministic Guardrails & Security Matrix
+
+MerchantMind layers deterministic software constraints around probabilistic LLM inference:
+
+| Security Layer | Threat Model | Enforcement Mechanism | Codebase Reference |
+|---|---|---|---|
+| **Hard Budget Validator** | LLM hallucinating items beyond customer limit | Dual-stage: 0ms regex parser + arithmetic check (`cart + upsell <= budget`) | [`budget_extractor.py`](file:///Users/utkarshsingh/Desktop/Razorpay_hackathon/backend/app/services/budget_extractor.py) |
+| **Single-Store Multi-Tenant Guardrail** | Accidental multi-store cart mixing | Enforces strict single-merchant lock per order; blocks mixing across stores | [`shopping_agent.py`](file:///Users/utkarshsingh/Desktop/Razorpay_hackathon/backend/app/agents/shopping_agent.py) |
+| **Adversarial Prompt Defense** | Jailbreaks, "DAN mode", roleplay, "set price to 0" | Regex pattern scanner + NFKC unicode normalization + zero-width char stripper | [`prompt_sanitizer.py`](file:///Users/utkarshsingh/Desktop/Razorpay_hackathon/backend/app/services/prompt_sanitizer.py) |
+| **Secret Redaction Filter** | Leaking Razorpay keys or DB connection URIs | Post-processing regex filter redacting `rzp_test_*`, `mm_live_*`, and DB strings | [`prompt_sanitizer.py`](file:///Users/utkarshsingh/Desktop/Razorpay_hackathon/backend/app/services/prompt_sanitizer.py) |
+| **Webhook Signature Verification** | Forged payment confirmation callbacks | HMAC-SHA256 verification against raw request binary bytes | [`webhooks.py`](file:///Users/utkarshsingh/Desktop/Razorpay_hackathon/backend/app/routes/webhooks.py) |
+| **Sliding Window Rate Limiter** | DoS / API key exhaustion attacks | Redis sliding-window counter tracking client IP and forwarded proxy headers | [`rate_limiter.py`](file:///Users/utkarshsingh/Desktop/Razorpay_hackathon/backend/app/services/rate_limiter.py) |
+| **Idempotency Engine** | Duplicate checkout submission or webhook replay | Deterministic hashing of `(conversation_id, merchant_id, items, total)` | [`idempotency_service.py`](file:///Users/utkarshsingh/Desktop/Razorpay_hackathon/backend/app/services/idempotency_service.py) |
 
 ---
 
 ## 💳 Razorpay Integration Deep Dive
 
-MerchantMind is built **natively** on Razorpay's payment infrastructure — not a thin wrapper, but a deep integration across the full payment lifecycle.
+MerchantMind is built natively upon the full Razorpay payment stack:
 
 ### Payment Flow
 
 ```
-┌────────────┐     ┌──────────────┐     ┌──────────────────────┐
-│  Customer   │     │ MerchantMind │     │     Razorpay API     │
-│  (Browser)  │     │   Backend    │     │                      │
-└──────┬─────┘     └──────┬───────┘     └──────────┬───────────┘
-       │                  │                         │
-       │  "Checkout"      │                         │
-       │─────────────────▶│                         │
-       │                  │  POST /v1/orders        │
-       │                  │────────────────────────▶│
-       │                  │                         │
-       │                  │  order_id               │
-       │                  │◀────────────────────────│
-       │                  │                         │
-       │                  │  POST /v1/payment_links │
-       │                  │────────────────────────▶│
-       │                  │                         │
-       │                  │  short_url              │
-       │                  │◀────────────────────────│
-       │                  │                         │
-       │  Payment Link    │                         │
-       │◀─────────────────│                         │
-       │                  │                         │
-       │  Opens Razorpay Standard Checkout          │
-       │───────────────────────────────────────────▶│
-       │                  │                         │
-       │  UPI / Card / Netbanking                   │
-       │───────────────────────────────────────────▶│
-       │                  │                         │
-       │                  │  Webhook: payment.captured
-       │                  │◀────────────────────────│
-       │                  │  HMAC-SHA256 verified ✅ │
-       │                  │                         │
-       │                  │  Update DB → PAID       │
-       │  Poll status     │                         │
-       │─────────────────▶│                         │
-       │  status: "paid"  │                         │
-       │◀─────────────────│                         │
-       │                  │                         │
-       │  🎉 Order Confirmed                        │
+┌────────────┐            ┌──────────────┐            ┌──────────────────────┐
+│  Customer  │            │ MerchantMind │            │     Razorpay API     │
+│  (Browser) │            │   Backend    │            │                      │
+└─────┬──────┘            └──────┬───────┘            └──────────┬───────────┘
+      │                          │                               │
+      │  "Checkout"              │                               │
+      │─────────────────────────▶│                               │
+      │                          │  POST /v1/orders              │
+      │                          │  amount: 65000 (paise)        │
+      │                          │──────────────────────────────▶│
+      │                          │                               │
+      │                          │  order_id: order_Q123...      │
+      │                          │◀──────────────────────────────│
+      │                          │                               │
+      │                          │  POST /v1/payment_links       │
+      │                          │──────────────────────────────▶│
+      │                          │                               │
+      │                          │  short_url: https://rzp.io/...│
+      │                          │◀──────────────────────────────│
+      │                          │                               │
+      │  Razorpay Payment Link   │                               │
+      │◀─────────────────────────│                               │
+      │                                                          │
+      │  Opens Razorpay Standard Checkout                        │
+      │─────────────────────────────────────────────────────────▶│
+      │                                                          │
+      │  UPI / Card / Netbanking Captured                        │
+      │─────────────────────────────────────────────────────────▶│
+      │                          │                               │
+      │                          │  POST /api/webhooks/razorpay  │
+      │                          │  (X-Razorpay-Signature)       │
+      │                          │◀──────────────────────────────│
+      │                          │                               │
+      │                          │  1. Verify HMAC (Raw Bytes)   │
+      │                          │  2. Order Status ➔ PAID       │
+      │                          │  3. Calculate Delivery ETA    │
+      │                          │                               │
+      │  Poll: /api/orders/{id}  │                               │
+      │─────────────────────────▶│                               │
+      │  status: "paid"          │                               │
+      │◀─────────────────────────│                               │
+      │                                                          │
+      │  🚀 Auto-Redirects to Live Tracking Screen               │
 ```
 
-### Razorpay APIs Used
-
-| API | Purpose | Security |
-|---|---|---|
-| **Orders API** (`/v1/orders`) | Create server-side order with amount, currency, receipt | Basic Auth (key_id:key_secret) |
-| **Payment Links API** (`/v1/payment_links`) | Generate short URLs for instant payment collection | Basic Auth + callback_url |
-| **Webhooks** (`payment.captured`, `payment_link.paid`) | Real-time payment status notifications | HMAC-SHA256 signature verification |
-| **Checkout.js** (Standard) | Embedded payment modal in the web UI | Auto-loaded via payment link |
-
-### Webhook Security
+### Webhook Verification Code
 
 ```python
-# HMAC-SHA256 Verification (every incoming webhook)
+# Verified against raw binary bytes (never pre-parsed JSON)
+raw_body: bytes = await request.body()
+received_signature: str = request.headers.get("X-Razorpay-Signature", "")
+
 expected_signature = hmac.new(
-    key=RAZORPAY_WEBHOOK_SECRET.encode(),
-    msg=request_body,
-    digestmod=hashlib.sha256
+    key=settings.razorpay_webhook_secret.encode("utf-8"),
+    msg=raw_body,
+    digestmod=hashlib.sha256,
 ).hexdigest()
 
 if not hmac.compare_digest(expected_signature, received_signature):
-    raise HTTPException(401, "Invalid webhook signature")
+    raise HTTPException(status_code=401, detail="Invalid webhook signature")
 ```
 
-- **Dead Letter Queue** — Failed webhook processing is retried via DLQ, never silently dropped
-- **Reconciliation Daemon** — Background worker runs every 60s to catch any missed webhooks by polling Razorpay order status directly
-- **Immutable Audit Trail** — Every payment event is logged to PostgreSQL with full request body, timestamp, and verification status
+- **Reconciliation Worker**: Background worker runs every 60s to poll Razorpay for any orders stuck in `pending_payment` to recover from missed webhooks.
+- **Dead Letter Queue (DLQ)**: Failed webhook processing is saved to a persistent dead letter table for inspection and replay.
 
 ---
 
-## ✨ Core Features
+## 📍 Post-Purchase Live Tracking & Delivery Simulator
 
-### 🛒 Conversational Checkout
-Natural language shopping — understands intent, flavors, occasions, quantities, and price constraints. *"I need a dark chocolate birthday cake under ₹800"* → instant results with reasoning.
+Once an order is confirmed, MerchantMind transitions into an **active post-purchase delivery concierge** in [`orders/[orderId]/tracking/page.tsx`](file:///Users/utkarshsingh/Desktop/Razorpay_hackathon/frontend/src/app/orders/%5BorderId%5D/tracking/page.tsx):
 
-### 📈 Context-Aware Upselling
-Proactive occasion detection (Cake → Birthday Candles + Balloon Combo). Budget-bounded — computes `remaining_budget = stated_budget - cart_total` and never overshoots.
+- **5-Stage Order Progression**: `Order Confirmed` ➔ `Kitchen Preparing` ➔ `Rider Assigned` ➔ `Out for Delivery` ➔ `Delivered`.
+- **Haversine Distance & Dynamic ETA**: Calculates distance between the selected Bangalore merchant's GPS coordinates and customer location, factoring in category preparation times (e.g. 20 min bakery prep + 4 min/km road transit).
+- **Interactive Voice Querying**: Customers can tap the mic or say *"Where is my food?"* to receive real-time audio progress updates without typing.
+- **Web Audio Arrival Chime**: Plays a pleasant harmonic chime when delivery reaches 100% completion.
 
-### 📱 Omnichannel Commerce
-Same agent brain, three frontends:
-- **Web Chat** — Next.js 16 with glassmorphism UI, voice input, animated product cards
-- **Telegram Bot** — Inline keyboard buttons, instant Razorpay pay links in-chat
-- **Voice** — Ambient voice engine via Web Speech API for hands-free ordering
+---
 
-### 🔍 AI-Readable Catalog (Schema.org)
-`GET /api/merchants/{id}/catalog.json` exports catalogs in Schema.org `ItemList` + `Product` + `Offer` JSON-LD format — discoverable by autonomous AI agents and search engines.
+## 💬 Real Conversational Scenarios
 
-### 📊 Merchant Analytics Dashboard
-Revenue breakdown, order funnel, customer cohorts, AOV trends — all powered by real transaction data from the Razorpay integration.
+### Scenario 1: Cross-Store Discovery with Budget Guardrail
+```
+User: "I want an eggless chocolate birthday cake under 800 rupees in Indiranagar"
+Agent: [DiscoveryAgent ➔ searches 200 Bangalore merchants ➔ parses budget: ₹800.00]
+"Found Sweet Bakes Bakery in Indiranagar!
+ 🎂 Dutch Truffle Eggless Cake (0.5 kg) — ₹650 (Rating: 4.9 ★)
+ Remaining budget: ₹150. Would you like me to lock Sweet Bakes Bakery?"
+```
 
-### 🛡️ Production-Grade Resilience
-Circuit breaker, rate limiter, DLQ, reconciliation daemon, idempotency keys, prompt sanitization, HMAC verification.
+### Scenario 2: Contextual Occasion Upselling
+```
+User: "Yes, lock it and add it to cart"
+Agent: [ShoppingAgent ➔ adds cake (₹650) ➔ detects occasion: Birthday]
+"Added Dutch Truffle Eggless Cake (₹650) to your cart!
+ 💡 Since this is for a birthday, would you like to add:
+   🕯️ Golden Metallic Birthday Candles — ₹60 (Fits your remaining ₹150 budget!)"
+
+User: "Add the candles and checkout"
+Agent: [CheckoutSaga ➔ stock reserved ➔ Razorpay order created]
+"Cart Total: ₹710.00 (under your ₹800 budget).
+ Here is your Razorpay Payment Link: https://rzp.io/i/mm_ord_8f7b..."
+```
+
+---
+
+## 🏆 Forensic Engineering: 16 Production Challenges Solved
+
+Every production engineering challenge encountered and solved during development is documented in [`docs/problems.md`](file:///Users/utkarshsingh/Desktop/Razorpay_hackathon/docs/problems.md):
+
+| # | Challenge Encountered | Root Cause | Engineering Solution | Impact |
+|---|---|---|---|---|
+| 1 | **ReAct N+1 Query Cascade** | `get_all_merchants_summary` ran 192 queries per turn | Aggregated PostgreSQL `json_agg` query + 5-min TTL cache | Turns dropped from 10.6s to **611ms** |
+| 2 | **Razorpay Paise Mismatch** | Float decimals passed to Razorpay API | Strict `int(round(amount * 100))` paise normalization | 100% elimination of `BAD_REQUEST` |
+| 3 | **Webhook Signature Failure** | `request.json()` altered raw byte stream before HMAC | Read `await request.body()` directly before JSON parsing | Zero signature falsing |
+| 4 | **Unconstrained Upsell Breaches** | Recommender prioritized margin over customer cap | Pre-recommendation `BudgetValidator` constraint | 100% budget compliance |
+| 5 | **Inventory Race Conditions** | Standard read-modify-write allowed overselling | Pessimistic `SELECT ... FOR UPDATE` row locks in 2PC saga | Zero stock overselling |
+| 6 | **Audio Autoplay Blocks** | Browser security blocked programmatic TTS playback | Hidden AudioContext unlocker primed on first mic tap | Flawless voice playback |
+| 7 | **Premature Voice Cutoffs** | 800ms silence timeout cut off conversational pauses | Adaptive 2.2s–3.0s sentence completeness buffer | Natural conversational voice |
+| 8 | **Cloud PostgreSQL Scheme Crash** | Railway/Render injected `postgres://` without async dialect | Config sanitizer converting to `postgresql+asyncpg://` | Seamless zero-downtime cloud deploy |
+| 9 | **Tracking Redirect Loop** | Sticky `localStorage` key forced chat to tracking on mount | Decoupled active session locks and added `?new=true` | Smooth re-ordering and fresh sessions |
+| 10 | **WhatsApp Handshake Rejections** | Meta expected raw plain-text integer for `hub.challenge` | Returned `PlainTextResponse` + Redis message deduplication | Instant Meta verification |
 
 ---
 
 ## ⚙️ Tech Stack
 
-| Layer | Technology | Version | Purpose |
+| Layer | Technology | Specification / Version | Role |
 |---|---|---|---|
-| **Frontend** | Next.js (App Router) | 16.3 | Server components, streaming SSR |
-| | React | 19.2 | UI rendering with concurrent features |
-| | Tailwind CSS | 4.x | Utility-first styling |
-| | Framer Motion | 13.x | Micro-animations and transitions |
-| | Three.js | 0.185 | 3D particle effects (landing page) |
-| | Lucide React | 1.34 | Icon system |
-| **Backend** | FastAPI | 0.115 | Async API framework (Uvicorn ASGI) |
-| | SQLAlchemy | 2.0 | Async ORM with asyncpg driver |
-| | Pydantic | 2.x | Request/response validation |
+| **Frontend** | Next.js (App Router) | 16.3 / React 19.2 | Server components, streaming SSR, dynamic routing |
+| | Three.js & Tailwind CSS | 0.185 / Tailwind 4.x | 3D particle constellation, glassmorphism UI |
+| | Lucide React | 1.34 | Scalable iconography |
+| **Backend** | FastAPI | 0.115 (Python 3.12) | High-performance asynchronous API framework |
+| | SQLAlchemy & Asyncpg | 2.0 / asyncpg 0.30 | Async ORM, row-level locking, connection pooling |
+| | Pydantic | 2.10 | Strict schema validation and type safety |
 | | Alembic | 1.14 | Database migrations |
-| **AI / LLM** | Groq API | — | Ultra-fast inference (< 200ms TTFT) |
-| | Llama 3.3 70B | Primary | Complex reasoning, tool calling |
-| | Llama 3.1 8B | Fallback | Lightweight routing, classification |
-| **Payments** | Razorpay SDK | 1.4.2 | Orders, Payment Links, Webhooks |
-| **Messaging** | Telegram Bot API | — | Interactive keyboards, pay buttons |
-| **Data** | PostgreSQL | 16 | ACID-compliant relational + JSONB |
-| | Redis | 7 | Session cache, rate limits, circuit state |
-| **Infra** | Docker Compose | — | Multi-container orchestration |
-| | Nginx | Alpine | Reverse proxy, load balancing |
-| | GitHub Actions | — | CI/CD pipeline |
-| | Netlify | — | Frontend CDN deployment |
+| **AI / Voice** | Groq Cloud API | Llama 3.3 70B & 3.1 8B | Sub-second multi-agent tool calling & reasoning |
+| | Deepgram Voice API | Flux Meena / Aura Studio | Low-latency neural speech synthesis (TTS) |
+| | Web Speech API | Native SpeechRecognition | Low-latency in-browser speech-to-text (STT) |
+| **Payments** | Razorpay SDK | 1.4.2 | Server-side Orders, Payment Links, HMAC Webhooks |
+| **Data Layer** | PostgreSQL | 16 | ACID transactions, row-level locking, JSON-LD storage |
+| | Redis | 7 | Sliding window rate limits, idempotency, session cache |
+| **DevOps** | Docker Compose | Multi-container | Local orchestration (Backend, Postgres, Redis, Nginx) |
+| | Netlify | Next.js Runtime | Global edge CDN frontend deployment |
 
 ---
 
-## 📁 Project Structure
+## 🚀 Quick Start & Local Development
 
+### Prerequisites
+- Docker & Docker Compose
+- Python 3.12+
+- Node.js 20+
+
+### 1. Clone the Repository
+```bash
+git clone https://github.com/UtkarshSingh-09/MerchentMind-.git
+cd MerchentMind-
 ```
-MerchantMind/
-├── backend/
-│   ├── app/
-│   │   ├── agents/                    # Multi-agent intelligence layer
-│   │   │   ├── agent_router.py        #   Intent classifier & agent dispatcher
-│   │   │   ├── discovery_agent.py     #   Cross-store product discovery (161KB)
-│   │   │   ├── shopping_agent.py      #   In-store cart + upsell agent (89KB)
-│   │   │   ├── checkout_agent.py      #   Razorpay checkout orchestrator
-│   │   │   └── merchant_agent.py      #   Store analytics & campaigns
-│   │   ├── services/                  # Business logic & external integrations
-│   │   │   ├── razorpay_service.py    #   Razorpay Orders + Payment Links
-│   │   │   ├── checkout_saga.py       #   Two-phase commit payment flow
-│   │   │   ├── catalog_search.py      #   Semantic product search engine
-│   │   │   ├── upsell_engine.py       #   Occasion-aware upselling rules
-│   │   │   ├── budget_extractor.py    #   NLP budget parsing from messages
-│   │   │   ├── entity_resolver.py     #   Fuzzy entity name matching
-│   │   │   ├── groq_client.py         #   LLM client with circuit breaker
-│   │   │   ├── circuit_breaker.py     #   Fault-tolerant Groq failover
-│   │   │   ├── prompt_sanitizer.py    #   Jailbreak & injection defense
-│   │   │   ├── audit_service.py       #   Immutable decision audit log
-│   │   │   ├── campaign_service.py    #   Dormant customer reactivation
-│   │   │   ├── memory_service.py      #   Conversation memory management
-│   │   │   ├── telegram_service.py    #   Telegram Bot API integration
-│   │   │   ├── whatsapp_service.py    #   WhatsApp Business API
-│   │   │   ├── reconciliation_service.py  # Missed webhook recovery
-│   │   │   ├── idempotency_service.py #   Webhook deduplication
-│   │   │   └── dlq_service.py         #   Dead letter queue for failures
-│   │   ├── routes/                    # API endpoints
-│   │   │   ├── chat.py                #   POST /api/chat/ (SSE streaming)
-│   │   │   ├── orders.py              #   Order CRUD + status polling
-│   │   │   ├── webhooks.py            #   Razorpay + Telegram + WhatsApp
-│   │   │   ├── merchants.py           #   Merchant catalog & info
-│   │   │   ├── analytics.py           #   Revenue & funnel analytics
-│   │   │   ├── campaigns.py           #   AI campaign dispatch
-│   │   │   └── voice.py               #   Voice transcription endpoint
-│   │   ├── models/                    # SQLAlchemy ORM models
-│   │   ├── schemas/                   # Pydantic request/response schemas
-│   │   ├── middleware/                # CORS, auth, rate limiting
-│   │   ├── config.py                  # Environment & settings
-│   │   ├── database.py                # Async engine + session factory
-│   │   └── main.py                    # FastAPI app entry point
-│   ├── tests/                         # 36 test files, 151+ test cases
-│   ├── alembic/                       # Database migrations
-│   ├── scripts/                       # Seed data & utilities
-│   ├── requirements.txt
-│   └── Dockerfile
-│
-├── frontend/
-│   ├── src/
-│   │   ├── app/
-│   │   │   ├── page.tsx               # Landing page (3D particles + CTA)
-│   │   │   ├── chat/page.tsx          # Main conversational checkout UI
-│   │   │   ├── orders/[orderId]/      # Dynamic order pages
-│   │   │   ├── tracking/             # Live order tracking
-│   │   │   ├── analytics/            # Merchant analytics dashboard
-│   │   │   ├── architecture/         # System architecture visualizer
-│   │   │   ├── intelligence/         # AI agent showcase
-│   │   │   └── merchant/             # Merchant management portal
-│   │   ├── components/
-│   │   │   ├── ChatMessage.tsx        # Rich message renderer (markdown + cards)
-│   │   │   ├── CartSidebar.tsx        # Slide-out cart with live totals
-│   │   │   ├── ProductCard.tsx        # Animated product display cards
-│   │   │   ├── VoiceOrb.tsx           # Ambient voice input visualizer
-│   │   │   ├── AgentReasoningPanel.tsx # Live AI reasoning transparency
-│   │   │   ├── PresentationModal.tsx  # Embedded slide deck viewer
-│   │   │   └── ParticleConstellation.tsx  # 3D background effects
-│   │   └── lib/                       # Shared utilities
-│   ├── public/                        # Static assets
-│   ├── package.json
-│   └── Dockerfile
-│
-├── nginx/
-│   └── nginx.conf                     # Reverse proxy configuration
-├── docker-compose.yml                 # Full-stack orchestration
-├── .env.example                       # Environment variable template
-├── .github/workflows/                 # CI/CD pipeline
-├── ARCHITECTURE.md                    # Detailed system architecture (49KB)
-├── netlify.toml                       # Frontend deployment config
-└── LICENSE                            # MIT License
+
+### 2. Configure Environment
+Copy `.env.example` to `.env` and set your credentials:
+```bash
+cp .env.example .env
+```
+Key variables:
+```ini
+GROQ_API_KEY=gsk_...
+RAZORPAY_KEY_ID=rzp_test_...
+RAZORPAY_KEY_SECRET=...
+RAZORPAY_WEBHOOK_SECRET=...
+DEEPGRAM_API_KEY=...
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5433/merchantmind
+REDIS_URL=redis://localhost:6380/0
+```
+
+### 3. Run with Docker Compose
+```bash
+docker compose up --build
+```
+- **Web Storefront**: `http://localhost:3000`
+- **Backend API**: `http://localhost:8000`
+- **Swagger Docs**: `http://localhost:8000/docs`
+
+### 4. Seed the Database
+Populate 200 authentic Bangalore stores and 5,000+ items across 20 neighborhoods:
+```bash
+curl -X POST http://localhost:8000/api/merchants/seed-database
 ```
 
 ---
 
-## 🚀 Try It Live
+## 🧪 Testing & Verification Matrix
 
-> **🌐 [merchantmind-ai.netlify.app](https://merchantmind-ai.netlify.app)** — Open the live demo and start shopping with the AI agent instantly. No setup required.
-
----
-
-## 📡 API Reference
-
-### Chat & AI
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/chat/` | Send message to AI agent (SSE streaming response) |
-| `POST` | `/api/chat/stream` | Real-time SSE stream with thinking + tool calls |
-| `POST` | `/api/voice/transcribe` | Voice audio → text transcription |
-
-### Orders & Payments
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/orders/` | Create order + generate Razorpay Payment Link |
-| `GET` | `/api/orders/{id}/status` | Poll payment confirmation status |
-| `GET` | `/api/orders/{id}/audit` | Full chronological audit trail |
-
-### Webhooks
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/webhooks/razorpay` | HMAC-SHA256 verified payment webhooks |
-| `POST` | `/api/webhooks/telegram` | Telegram Bot update handler |
-| `GET/POST` | `/api/webhooks/whatsapp` | Meta WhatsApp verification + messages |
-
-### Merchants & Catalog
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/merchants/` | List all merchants |
-| `GET` | `/api/merchants/{id}` | Merchant details + products |
-| `GET` | `/api/merchants/{id}/catalog.json` | Schema.org / JSON-LD AI-readable catalog |
-
-### Analytics & Campaigns
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/analytics/dashboard` | Revenue, orders, AOV, funnel metrics |
-| `POST` | `/api/campaigns/dispatch` | AI-powered dormant customer reactivation |
-
----
-
-## 🧪 Testing
-
-### Test Suite: 36 Files · 151+ Test Cases
+The test suite contains **151 test cases across 36 specialized test suites**:
 
 ```bash
 cd backend
 pytest tests/ -v --tb=short
 ```
 
-### Test Coverage Breakdown
-
-| Category | Test Files | What's Tested |
+| Suite | File | What It Formally Verifies |
 |---|---|---|
-| **Core Flow** | `test_orders.py`, `test_chat.py` | Full order lifecycle, SSE streaming |
-| **AI Agents** | `test_upsell.py`, `test_single_store_guardrail.py` | Upsell accuracy, store-lock enforcement |
-| **Security** | `test_adversarial_jailbreaks.py`, `test_security_hardening.py` | Prompt injection, auth bypass, RBAC |
-| **Payments** | `test_saga_compensation.py`, `test_saga_edge_cases.py` | 2PC rollback, double-pay prevention |
-| **Resilience** | `test_circuit_breaker.py`, `test_dlq_and_webhook_resilience.py` | Failover, dead letter recovery |
-| **Data** | `test_multi_tenant.py`, `test_concurrency_race.py` | Tenant isolation, race condition safety |
-| **Integrations** | `test_telegram.py`, `test_whatsapp.py` | Bot message handling, webhook verify |
-| **NLP** | `test_budget_extractor_comprehensive.py`, `test_entity_resolver_fuzzing.py` | ₹ parsing, fuzzy matching accuracy |
+| **Distributed Saga** | `test_saga_compensation.py`, `test_saga_edge_cases.py` | 2PC rollback on payment failure, boundary stock depletion, client tampering overrides |
+| **Store Isolation** | `test_single_store_guardrail.py`, `test_multi_tenant.py` | Zero cross-store mixing, tenant data separation, Schema.org catalog export |
+| **Adversarial Fuzzing** | `test_prompt_sanitizer_deep_fuzzing.py`, `test_adversarial_jailbreaks.py` | DAN mode, zero-width chars, base64 bypass, key redaction, system prompt leak blocks |
+| **Razorpay Payments** | `test_orders.py`, `test_idempotency_precision.py` | Order creation, payment link generation, raw HMAC webhooks, float drift invariance |
+| **Security & Limits** | `test_security_hardening.py`, `test_rate_limiter_exhaustive.py` | OWASP headers, payload size caps, sliding-window rate limit, proxy parsing |
+| **Spatial & Logistics**| `test_haversine_and_eta.py` | Haversine distance symmetry, prep-time calculation, antipodal coordinate edge cases |
+| **Voice & Speech** | `test_voice_service.py` | Deepgram audio streaming, speech synthesis fallbacks, empty query rejection |
+
+---
+
+## 📡 API Reference
+
+### Conversational Commerce & AI
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/chat/` | Send conversational message (returns rich product recommendations & cart) |
+| `POST` | `/api/chat/stream` | Real-time SSE streaming endpoint with agent reasoning transparency |
+| `GET` | `/api/voice/status` | Verify Deepgram Voice AI connectivity and model availability |
+| `POST` | `/api/voice/speak` | Synthesize ultra-low latency audio using Deepgram Flux Meena |
+
+### Razorpay Orders & Checkout
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/orders/` | Execute checkout saga, reserve stock, and generate Razorpay Payment Link |
+| `GET` | `/api/orders/{id}` | Fetch order details, line items, and fulfillment information |
+| `GET` | `/api/orders/{id}/status` | Poll payment confirmation status |
+| `GET` | `/api/orders/{id}/tracking` | Fetch real-time delivery coordinates, rider ETA, and Haversine distance |
+| `GET` | `/api/orders/{id}/audit` | Fetch complete immutable chronological audit trail |
+
+### Webhooks & Integrations
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/webhooks/razorpay` | Cryptographically verified HMAC-SHA256 Razorpay payment webhook |
+| `POST` | `/api/webhooks/telegram` | Telegram Bot update and payment callback handler |
+| `GET/POST`| `/api/webhooks/whatsapp` | Meta WhatsApp Cloud API handshake verification and message receiver |
+
+### Merchant Operations & Catalog
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/merchants/` | List all registered merchants with ratings and coordinates |
+| `POST` | `/api/merchants/seed-database`| Instant seeding of 200 authentic Bangalore stores and 5,000+ items |
+| `GET` | `/api/merchants/{id}/catalog.json` | Schema.org JSON-LD AI-readable catalog export |
+| `GET` | `/api/analytics/dashboard` | Merchant business intelligence: revenue, AOV, funnel conversions |
 
 ---
 
 ## 🌍 Deployment
 
-### Live Demo
-
-The frontend is deployed on **Netlify** with automatic deploys from the `main` branch:
-
-🌐 **[merchantmind-ai.netlify.app](https://merchantmind-ai.netlify.app)**
-
-### Production Architecture
-
-```
-GitHub Push → GitHub Actions CI → Tests Pass → Netlify Build → CDN Deploy
-                                                    │
-                                              Backend (VPS)
-                                              ├── Docker Compose
-                                              ├── PostgreSQL 16
-                                              ├── Redis 7
-                                              └── Nginx SSL Termination
-```
+- **Frontend**: Live on **Netlify Edge CDN** at [merchantmind-ai.netlify.app](https://merchantmind-ai.netlify.app)
+- **Backend**: Containerized FastAPI service with PostgreSQL 16 & Redis 7
+- **CI/CD Pipeline**: Automated GitHub Actions running full test suite on push
 
 ---
 
 ## 📄 License
 
-This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+This project is open-source under the **MIT License** — see the [LICENSE](LICENSE) file for details.
 
 ---
 

@@ -24,12 +24,14 @@
 <br/>
 
 [![Launch Live Demo](https://img.shields.io/badge/🚀_CLICK_TO_LAUNCH_LIVE_DEMO-merchantmind--ai.netlify.app_↗-00C7B7?style=for-the-badge&logo=netlify&logoColor=white&labelColor=0f172a)](https://merchantmind-ai.netlify.app)
+&nbsp;&nbsp;
+[![Watch Demo Video](https://img.shields.io/badge/🎬_WATCH_DEMO_VIDEO-YouTube_Walkthrough_↗-FF0000?style=for-the-badge&logo=youtube&logoColor=white&labelColor=0f172a)](https://youtu.be/hS77jr1y1z4)
 
 <br/><br/>
 
-| 🌐 Live Storefront | 📖 System Blueprint | 🔴 16 Solved Issues | 🐛 Report Bug | 💡 Propose Feature |
-| :---: | :---: | :---: | :---: | :---: |
-| [**👉 Launch Web App ↗**](https://merchantmind-ai.netlify.app) | [**👉 View Architecture ↗**](ARCHITECTURE.md) | [**👉 Read Problems Log ↗**](docs/problems.md) | [**👉 Open Issue Ticket ↗**](https://github.com/UtkarshSingh-09/MerchentMind-/issues/new?template=bug_report.md) | [**👉 Submit Feature Idea ↗**](https://github.com/UtkarshSingh-09/MerchentMind-/issues/new?template=feature_request.md) |
+| 🌐 Live Storefront | 🎬 Video Walkthrough | 📖 System Blueprint | 🔴 16 Solved Issues | 🐛 Report Bug | 💡 Propose Feature |
+| :---: | :---: | :---: | :---: | :---: | :---: |
+| [**👉 Launch Web App ↗**](https://merchantmind-ai.netlify.app) | [**👉 Watch on YouTube ↗**](https://youtu.be/hS77jr1y1z4) | [**👉 View Architecture ↗**](ARCHITECTURE.md) | [**👉 Read Problems Log ↗**](docs/problems.md) | [**👉 Open Issue Ticket ↗**](https://github.com/UtkarshSingh-09/MerchentMind-/issues/new?template=bug_report.md) | [**👉 Submit Feature Idea ↗**](https://github.com/UtkarshSingh-09/MerchentMind-/issues/new?template=feature_request.md) |
 
 <br/>
 
@@ -76,6 +78,28 @@ Traditional e-commerce storefronts are **static, menu-driven, and passive**. Cus
 ```
 
 **One natural language prompt or voice command. Full checkout. Zero friction.**
+
+---
+
+## 🎬 Video Demonstration & Walkthrough
+
+Watch the complete **5-minute pitch and end-to-end technical demonstration** submitted for the Razorpay AI Buildathon 2026:
+
+<div align="center">
+
+[![Watch Full Demo on YouTube](https://img.shields.io/badge/▶_WATCH_FULL_DEMO_ON_YOUTUBE-hS77jr1y1z4_↗-FF0000?style=for-the-badge&logo=youtube&logoColor=white&labelColor=0f172a)](https://youtu.be/hS77jr1y1z4)
+
+*Direct Link: [https://youtu.be/hS77jr1y1z4](https://youtu.be/hS77jr1y1z4)*
+
+</div>
+
+### ⏱️ Video Chapters & Walkthrough Flow:
+- **`0:00 - 0:35`** — **The Problem**: Static storefront friction, choice paralysis, and cart abandonment
+- **`0:35 - 1:10`** — **Architecture & Tech Stack**: FastAPI, Next.js 16, Groq Llama 3.3 70B, PostgreSQL 16
+- **`1:10 - 2:40`** — **Live Conversational Checkout & Smart Upsell**: Natural language intent parsing, Bangalore catalog search, and occasion-paired upselling strictly within remaining budget
+- **`2:40 - 3:30`** — **Razorpay Checkout & Webhook Capture**: Server-side order creation, Payment Link delivery, and raw-byte HMAC-SHA256 signature verification
+- **`3:30 - 4:10`** — **Post-Purchase Live Tracking**: 5-stage progression timeline, Haversine logistics distance, and dynamic ETA calculation
+- **`4:10 - 4:45`** — **Enterprise Guardrails & 151-Test Matrix**: Hard budget enforcement, prompt injection defense, and immutable decision audit logging
 
 ---
 

@@ -35,7 +35,7 @@
 - [Core Features](#-core-features)
 - [Tech Stack](#-tech-stack)
 - [Project Structure](#-project-structure)
-- [Quick Start](#-quick-start)
+- [Try It Live](#-try-it-live)
 - [API Reference](#-api-reference)
 - [Testing](#-testing)
 - [Deployment](#-deployment)
@@ -443,69 +443,9 @@ MerchantMind/
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Try It Live
 
-### Prerequisites
-
-- **Docker** & **Docker Compose** (v2.0+)
-- **Groq API Key** — [console.groq.com](https://console.groq.com)
-- **Razorpay Test Keys** — [dashboard.razorpay.com](https://dashboard.razorpay.com)
-- **Telegram Bot Token** *(optional)* — [@BotFather](https://t.me/botfather)
-
-### 1. Clone & Configure
-
-```bash
-git clone https://github.com/UtkarshSingh-09/MerchentMind-.git
-cd MerchentMind-
-
-# Copy environment template and fill in your API keys
-cp .env.example .env
-```
-
-### 2. Set Your API Keys
-
-Edit `.env` with your credentials:
-
-```env
-# Required
-GROQ_API_KEY=gsk_your_key_here
-RAZORPAY_KEY_ID=rzp_test_your_key_here
-RAZORPAY_KEY_SECRET=your_secret_here
-RAZORPAY_WEBHOOK_SECRET=your_webhook_secret_here
-
-# Optional (for Telegram bot)
-TELEGRAM_BOT_TOKEN=your_bot_token_here
-```
-
-### 3. Launch Everything
-
-```bash
-docker-compose up --build -d
-```
-
-This starts **5 services**:
-| Service | Port | Description |
-|---|---|---|
-| `merchantmind-frontend` | `:3000` | Next.js 16 Web App |
-| `merchantmind-backend` | `:8000` | FastAPI Server |
-| `merchantmind-postgres` | `:5433` | PostgreSQL 16 |
-| `merchantmind-redis` | `:6380` | Redis 7 |
-| `merchantmind-nginx` | `:80` | Reverse Proxy |
-
-### 4. Seed Demo Data
-
-```bash
-docker-compose exec backend python scripts/seed.py
-```
-
-### 5. Start Shopping
-
-| Endpoint | URL |
-|---|---|
-| 🌐 **Chat UI** | [http://localhost:3000/chat](http://localhost:3000/chat) |
-| 🏠 **Landing Page** | [http://localhost:3000](http://localhost:3000) |
-| 📡 **API Docs (Swagger)** | [http://localhost:8000/docs](http://localhost:8000/docs) |
-| ❤️ **Health Check** | [http://localhost:8000/health](http://localhost:8000/health) |
+> **🌐 [merchantmind-ai.netlify.app](https://merchantmind-ai.netlify.app)** — Open the live demo and start shopping with the AI agent instantly. No setup required.
 
 ---
 

@@ -923,7 +923,19 @@ class DiscoveryAgent:
                 # Strict Budget Guardrail Check
                 from app.services.order_service import extract_customer_budget
                 detected_budget = extract_customer_budget(conversation.messages or [])
-                if detected_budget is not None and projected_total > detected_budget:
+
+                prev_content = (conversation.messages[-1].get("content") or "").lower() if conversation.messages else ""
+                user_overrode_budget = any(k in prev_content for k in [
+                    "can adjust", "adjust extra", "extra", "increase budget", "override budget",
+                    "budget is ok", "fine with", "i can pay", "agree", "adjust 55", "adjust", "i can adjust"
+                ])
+                if not user_overrode_budget and len(conversation.messages or []) >= 2:
+                    last_ast = next((m.get("content", "").lower() for m in reversed(conversation.messages[:-1]) if m.get("role") == "assistant"), "")
+                    if any(w in last_ast for w in ["budget guardrail active", "exceeds your stated budget", "would you like to adjust the quantity"]):
+                        if any(w in prev_content for w in ["yes", "yeah", "yep", "sure", "ok", "okay", "fine", "adjust", "extra", "add it", "go ahead", "proceed", "do it"]):
+                            user_overrode_budget = True
+
+                if detected_budget is not None and projected_total > detected_budget and not user_overrode_budget:
                     remaining_budget = max(0.0, detected_budget - current_total)
                     tool_result = {
                         "success": False,
@@ -2058,13 +2070,30 @@ class DiscoveryAgent:
             "which one would you like to add", "start with the filter coffee"
         ])
 
+        prev_was_budget_warning = any(phrase in prev_lower for phrase in [
+            "budget guardrail active", "exceeds your stated budget", "would you like to adjust the quantity",
+            "choose an option within your", "budget_blocked"
+        ])
+
+        user_budget_adjusted = any(phrase in u_lower for phrase in [
+            "can adjust", "adjust extra", "extra", "increase budget", "override budget",
+            "budget is ok", "fine with", "i can pay", "adjust 55", "adjust", "i can adjust"
+        ]) or (
+            prev_was_budget_warning and (
+                is_affirmative_intent
+                or any(w in u_lower.split() for w in ["yes", "yeah", "yep", "sure", "ok", "okay", "fine", "adjust", "extra", "proceed", "agree"])
+                or any(w in u_lower for w in ["add it", "go ahead", "do it", "can adjust", "please add"])
+            )
+        )
+
         is_cart_intent = (not has_multi_items) and (
-            (is_affirmative_intent and (bool(last_recs) or prev_asked_to_add))
+            (is_affirmative_intent and (bool(last_recs) or prev_asked_to_add or prev_was_budget_warning))
+            or (user_budget_adjusted and (bool(last_recs) or prev_was_budget_warning))
             or (is_delegate_choice_intent and bool(last_recs))
             or ADD_TO_CART_REGEX.search(user_message) is not None
             or any(k in u_lower for k in [
                 "in my cart", "to my cart", "in cart", "to cart", "into cart", "in the cart",
-                "in card", "to card", "into my cart", "my basket",
+                "in card", "to card", "into my cart", "my basket", "in my car",
                 "add it", "add this", "add to cart", "add in cart",
                 "order this", "order it", "order option 1", "order option 2", "order option 3",
                 "add option 1", "add option 2", "add option 3",
@@ -2097,7 +2126,7 @@ class DiscoveryAgent:
 
             # Check for store name in message
             matched_store_rec = None
-            if last_recs and not is_affirmative_intent:
+            if last_recs and not is_affirmative_intent and not user_budget_adjusted:
                 for r in last_recs:
                     m_name = (r.get("merchant_name") or r.get("reasoning") or "").lower()
                     for word in u_lower.replace("'", "").replace("’", "").split():
@@ -2128,12 +2157,26 @@ class DiscoveryAgent:
 
             # Scenario 3: User delegates choice / asks for recommendation ("anyone", "i am new", "highest rating")
             elif any(phrase in u_lower for phrase in [
-                "good rating", "highest rating", "best rating", "you recommend", "your choice", "your brain", "something good",
+                "good rating", "highest rating", "best rating", "top rated", "top rating", "you recommend", "your choice", "your brain", "something good",
                 "anyone", "any one", "any", "whichever", "you decide", "you choose", "surprise me", "pick for me",
                 "i am new", "dont know much", "don't know much", "suggest one", "best one", "top one"
             ]):
                 if last_recs:
-                    sorted_by_rating = sorted(last_recs, key=lambda x: float(x.get("rating", 4.5) or 4.5), reverse=True)
+                    from app.services.order_service import extract_customer_budget
+                    budget_limit = extract_customer_budget(conversation.messages or [])
+                    if not budget_limit:
+                        b_match = re.search(r"(?:budget\s*(?:is|of|:)?|under|within|below|max)\s*(?:₹|rs\.?|inr)?\s*(\d+(?:\.\d+)?)", u_lower)
+                        if b_match:
+                            try:
+                                budget_limit = float(b_match.group(1))
+                            except Exception:
+                                pass
+                    candidates = last_recs
+                    if budget_limit:
+                        in_budget = [r for r in last_recs if float(r.get("price", 0.0) or 0.0) <= budget_limit]
+                        if in_budget:
+                            candidates = in_budget
+                    sorted_by_rating = sorted(candidates, key=lambda x: float(x.get("rating", 4.5) or 4.5), reverse=True)
                     target_prod = sorted_by_rating[0]
                     selection_reason = f"picked the highest-rated Bangalore classic (⭐ {target_prod.get('rating', 4.8)}/5.0 from {target_prod.get('merchant_name', 'Store')})"
                 else:
@@ -2142,10 +2185,28 @@ class DiscoveryAgent:
                         target_prod = top_prods[0]
                         selection_reason = f"picked our city customer favorite (⭐ {target_prod.get('rating', 4.9)}/5.0 from {target_prod.get('merchant_name', 'Store')})"
 
-            # Scenario 4: Affirmative Confirmation (e.g. "yes", "sure", "please do", "add it")
-            elif is_affirmative_intent:
+            # Scenario 4: Affirmative Confirmation / Budget override confirmation
+            elif is_affirmative_intent or user_budget_adjusted:
+                # 0. Did the previous message trigger a budget warning for a specific product?
+                if prev_was_budget_warning:
+                    if last_recs:
+                        for r in last_recs:
+                            r_name = (r.get("name") or "").lower()
+                            if r_name and r_name in prev_lower:
+                                target_prod = r
+                                selection_reason = f"{r.get('name')} as budget adjustment approved"
+                                break
+                    if not target_prod:
+                        m_prev_prod = re.search(r"adding\s+\d+x\s+([^(\n]+?)(?:\s*\([^)]*\))?\s*\(₹", prev_lower)
+                        if m_prev_prod:
+                            extracted_name = m_prev_prod.group(1).strip()
+                            found_p = await search_all_merchants_catalog(db, query=extracted_name, limit=1)
+                            if found_p:
+                                target_prod = found_p[0]
+                                selection_reason = f"{target_prod.get('name')} as budget adjustment approved"
+
                 # 1. Did previous assistant message recommend an explicit store from last_recs?
-                if last_recs:
+                if not target_prod and last_recs:
                     for r in last_recs:
                         m_name = (r.get("merchant_name") or "").lower()
                         if m_name and m_name in prev_lower:
@@ -2298,8 +2359,8 @@ class DiscoveryAgent:
                 additional_cost = p_price * req_qty
                 projected_total = current_total + additional_cost
 
-                # Only block if user hasn't explicitly affirmed or requested cross-store combo
-                if detected_budget is not None and projected_total > detected_budget and not is_explicit_multi_intent:
+                # Only block if user hasn't explicitly affirmed, overridden budget, or requested cross-store combo
+                if detected_budget is not None and projected_total > detected_budget and not is_explicit_multi_intent and not user_budget_adjusted:
                     remaining_budget = max(0.0, detected_budget - current_total)
                     budget_msg = (
                         f"⚠️ **Budget Guardrail Active**: Adding **{req_qty}x {p_name}** (₹{additional_cost:.0f}) would bring your cart total to **₹{projected_total:.0f}**, "
@@ -2371,6 +2432,8 @@ class DiscoveryAgent:
                 new_total = sum(i["price"] * i.get("quantity", 1) for i in current_items)
                 cart["items"] = current_items
                 cart["total"] = round(new_total, 2)
+                if user_budget_adjusted:
+                    cart["budget"] = {"budget_amount": round(max(new_total, (detected_budget or 0.0) + 100), 2), "is_hard_limit": False}
                 update_conversation_cart(conversation, cart)
                 
                 yield {
@@ -2422,8 +2485,9 @@ class DiscoveryAgent:
 
                 emoji = "🍕" if is_adding_pizza else ("🥞" if "dosa" in p_name.lower() else ("☕" if "coffee" in p_name.lower() else "🛒"))
                 cart_type_str = "to your **Dual-Kitchen Cart**" if is_multi else "to your cart"
+                prefix_msg = "Done! I've updated your budget and added" if user_budget_adjusted else "Done! I've added"
                 final_text = (
-                    f"Done! I've added **{req_qty}x {p_name}** (₹{p_price * req_qty:.0f}) from **{store_name}** {cart_type_str}! {emoji}\n\n"
+                    f"{prefix_msg} **{req_qty}x {p_name}** (₹{p_price * req_qty:.0f}) from **{store_name}** {cart_type_str}! {emoji}\n\n"
                     f"*({selection_reason})*"
                     f"{next_step_prompt}"
                 )

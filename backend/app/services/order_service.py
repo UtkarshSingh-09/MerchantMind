@@ -26,17 +26,70 @@ def extract_customer_budget(messages: list[dict[str, Any]]) -> float | None:
         r"(?:under|budget\s*(?:is|of|:)?|within|below|max|maximum)\s*(?:₹|rs\.?|inr)?\s*(\d+(?:\.\d+)?)",
         re.IGNORECASE,
     )
-    for msg in reversed(messages or []):
-        if msg.get("role") == "user":
-            content = msg.get("content", "")
-            match = pattern.search(content)
+    pattern_rev = re.compile(
+        r"(?:₹|rs\.?|inr)?\s*(\d+(?:\.\d+)?)\s*(?:budget|limit)\b",
+        re.IGNORECASE,
+    )
+    extra_pattern = re.compile(
+        r"(?:adjust|extra|more|increase)\s*(?:by|of)?\s*(?:₹|rs\.?|inr)?\s*(\d+(?:\.\d+)?)",
+        re.IGNORECASE,
+    )
+    extra_pattern_rev = re.compile(
+        r"(?:₹|rs\.?|inr)?\s*(\d+(?:\.\d+)?)\s*(?:extra|more)\b",
+        re.IGNORECASE,
+    )
+    budget_warn_total = re.compile(
+        r"(?:cart total to|projected total to)\s*(?:[*_]*)\s*(?:₹|rs\.?|inr)?\s*(\d+(?:\.\d+)?)",
+        re.IGNORECASE,
+    )
+
+    base_budget = None
+    extra_amount = 0.0
+    pending_warning_total = None
+
+    for msg in messages or []:
+        role = msg.get("role")
+        content = msg.get("content", "")
+        if role == "assistant":
+            # Check if assistant warned about budget and stated a projected total
+            c_low = content.lower()
+            if "budget guardrail active" in c_low or "budget_blocked" in str(msg.get("metadata", {})) or "exceeds your stated budget" in c_low:
+                m_total = budget_warn_total.search(content)
+                if m_total:
+                    try:
+                        pending_warning_total = float(m_total.group(1))
+                    except ValueError:
+                        pass
+        elif role == "user":
+            u_clean = content.lower().strip()
+            # If there was a pending warning total and the user confirmed/affirmed it:
+            if pending_warning_total is not None:
+                if any(w in u_clean for w in [
+                    "yes", "yeah", "yep", "sure", "ok", "okay", "fine", "adjust", "extra",
+                    "can adjust", "add it", "go ahead", "proceed", "do it", "agree", "please do"
+                ]):
+                    base_budget = max(base_budget or 0.0, pending_warning_total)
+                    pending_warning_total = None
+
+            match = pattern.search(content) or pattern_rev.search(content)
             if match:
                 try:
                     val = float(match.group(1))
-                    if 10 <= val <= 1000000:  # Sensible range
-                        return val
+                    if 10 <= val <= 1000000:
+                        base_budget = val
                 except ValueError:
-                    continue
+                    pass
+            ex_match = extra_pattern.search(content) or extra_pattern_rev.search(content)
+            if ex_match:
+                try:
+                    ex_val = float(ex_match.group(1))
+                    if 1 <= ex_val <= 100000:
+                        extra_amount += ex_val
+                except ValueError:
+                    pass
+
+    if base_budget is not None:
+        return base_budget + extra_amount
     return None
 
 

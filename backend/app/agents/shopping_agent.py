@@ -1071,6 +1071,81 @@ class ShoppingAgent:
                 payment_link=active_order.payment_link,
             )
 
+        # Autonomous Live Order Tracking Fast-Path
+        is_tracking_intent = any(k in u_clean for k in [
+            "tracking page", "show me the tracking", "show tracking", "go to tracking",
+            "track order", "track my order", "order tracking", "where is my order",
+            "live tracking", "track my food", "tracking", "take me to tracking",
+            "bring me to tracking", "open tracking"
+        ]) or (
+            re.search(r"\b(track|tracking)\b", u_clean) is not None
+            and any(w in u_clean for w in ["go", "open", "show", "view", "page", "my", "where", "status"])
+        )
+
+        if is_tracking_intent:
+            found_order = active_order
+            if not found_order:
+                res = await db.execute(
+                    select(Order)
+                    .where(Order.conversation_id == conversation.id)
+                    .order_by(Order.created_at.desc())
+                    .limit(1)
+                )
+                found_order = res.scalar_one_or_none()
+            if not found_order and conversation.customer_id:
+                res = await db.execute(
+                    select(Order)
+                    .where(Order.customer_id == conversation.customer_id)
+                    .order_by(Order.created_at.desc())
+                    .limit(1)
+                )
+                found_order = res.scalar_one_or_none()
+            if not found_order:
+                for m in reversed(conversation.messages or []):
+                    c = m.get("content", "")
+                    m_uuid = re.search(r"/orders/([0-9a-fA-F-]{36})/tracking", c) or re.search(r"([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})", c)
+                    if m_uuid:
+                        try:
+                            import uuid as _uuid
+                            ord_uuid = _uuid.UUID(m_uuid.group(1))
+                            res = await db.execute(select(Order).where(Order.id == ord_uuid))
+                            found_order = res.scalar_one_or_none()
+                            if found_order:
+                                break
+                        except Exception:
+                            pass
+            if not found_order:
+                res = await db.execute(
+                    select(Order)
+                    .order_by(Order.created_at.desc())
+                    .limit(1)
+                )
+                found_order = res.scalar_one_or_none()
+
+            if found_order:
+                status_str = found_order.status.value if hasattr(found_order.status, "value") else str(found_order.status)
+                tracking_url = f"/orders/{found_order.id}/tracking"
+                tracking_msg = (
+                    f"Okay! Taking you to your live tracking page for **Order #{str(found_order.id)[:8]}** now... 🚀\n\n"
+                    f"• **Status:** {status_str}\n"
+                    f"• **Fulfillment:** {found_order.fulfillment_mode.title()}\n"
+                    f"• **Total:** ₹{found_order.total:.0f}\n\n"
+                    f"[🚚 Open Live Order Tracking Dashboard]({tracking_url})"
+                )
+                add_message_to_conversation(conversation, role="assistant", content=tracking_msg)
+                return ChatResponse(
+                    conversation_id=conversation.id,
+                    order_id=str(found_order.id),
+                    merchant_id=found_order.merchant_id or merchant.id,
+                    merchant_name=merchant.name,
+                    message=tracking_msg,
+                    recommendations=None,
+                    cart=[],
+                    cart_total=0.0,
+                    action="tracking",
+                    payment_link=found_order.payment_link if "PAID" not in status_str.upper() else None,
+                )
+
         # Memory optimization: sliding window + summarization
         optimized_history = await build_optimized_context(conversation, max_recent=6)
 

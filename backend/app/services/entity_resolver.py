@@ -174,5 +174,19 @@ class EntityResolver:
             "clarifications": clarifications,
         }
 
+    def resolve_product_fuzzy(
+        self, query: str, available_products: list[dict[str, Any]]
+    ) -> dict[str, Any] | None:
+        """Find the best-matching product from a list using token-aware similarity scoring."""
+        best_prod = None
+        best_score = 0.0
+        for p in available_products:
+            score = calculate_similarity(query, p.get("name", ""))
+            if score > best_score:
+                best_score = score
+                best_prod = p
+        return best_prod if best_score >= 0.40 else None
+
 
 entity_resolver = EntityResolver()
+

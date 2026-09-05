@@ -49,9 +49,7 @@ async def get_or_create_demo_customer(db: AsyncSession = Depends(get_db)):
         },
     ]
     prefs = {
-        "dietary": ["Vegetarian"],
         "preferred_spice": "Medium",
-        "max_typical_budget": 500,
         "favorite_cuisines": ["Chinese", "Artisan Bakery", "Specialty Coffee"],
     }
     favs = [

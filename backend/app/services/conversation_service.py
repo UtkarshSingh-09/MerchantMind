@@ -21,6 +21,15 @@ async def get_or_create_conversation(
 
     If merchant_id is None, creates a Discovery Mode conversation.
     """
+    # Resolve customer by phone if ID not provided
+    if not customer_id and customer_phone:
+        from app.models.customer import Customer
+        stmt_c = select(Customer).where(Customer.phone == customer_phone)
+        res_c = await db.execute(stmt_c)
+        c = res_c.scalars().first()
+        if c:
+            customer_id = c.id
+
     if conversation_id:
         stmt = select(Conversation).where(Conversation.id == conversation_id)
         result = await db.execute(stmt)
@@ -113,11 +122,18 @@ def update_conversation_cart(
 ) -> None:
     """Update cart JSONB structure and recalculate total."""
     items = cart_data.get("items", [])
-    total = sum(item.get("price", 0.0) * item.get("quantity", 1) for item in items)
-    conversation.cart = {
+    total = sum(float(item.get("price") or item.get("unit_price") or 0.0) * int(item.get("quantity", 1)) for item in items)
+    updated_cart: dict[str, Any] = {
         "items": items,
         "total": round(total, 2),
     }
+    if cart_data.get("merchant_id"):
+        updated_cart["merchant_id"] = str(cart_data["merchant_id"])
+    if cart_data.get("merchant_name"):
+        updated_cart["merchant_name"] = str(cart_data["merchant_name"])
+    if cart_data.get("budget"):
+        updated_cart["budget"] = cart_data["budget"]
+    conversation.cart = updated_cart
 
 
 def add_agent_reasoning(

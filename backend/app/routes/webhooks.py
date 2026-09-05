@@ -8,10 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.database import get_db
 from app.services.razorpay_service import razorpay_service
+from app.services.telegram_service import telegram_service
+from app.services.telegram_session import get_or_create_telegram_session
 from app.services.whatsapp_service import whatsapp_service
 from app.services.whatsapp_session import get_or_create_whatsapp_session
 from app.services import order_service
 from app.agents.checkout_agent import checkout_agent
+from app.agents.agent_router import agent_router
 
 logger = logging.getLogger(__name__)
 
@@ -235,6 +238,157 @@ async def whatsapp_webhook(
                         to=sender_phone,
                         text="I'm sorry, I encountered a temporary issue processing your request. Please try again!",
                     )
+
+    return {"status": "success"}
+
+
+# =========================================================================
+# Telegram Bot Webhook
+# =========================================================================
+
+@router.post("/telegram")
+async def telegram_webhook(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Handle incoming Telegram Bot updates, invoke agentic intelligence, and dispatch replies."""
+    try:
+        data = await request.json()
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid JSON body")
+
+    logger.info("Received Telegram webhook update: %s", data)
+
+    # Optional secret token header verification
+    secret_header = request.headers.get("X-Telegram-Bot-Api-Secret-Token")
+    if settings.telegram_webhook_secret and secret_header != settings.telegram_webhook_secret:
+        logger.warning("Telegram secret token mismatch: %s", secret_header)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Secret token mismatch")
+
+    message_obj = data.get("message")
+    callback_query = data.get("callback_query")
+
+    chat_id = None
+    user_info = None
+    user_text = ""
+
+    if callback_query:
+        # User clicked an inline button
+        cb_id = callback_query.get("id")
+        from_user = callback_query.get("from", {})
+        msg = callback_query.get("message", {})
+        chat_id = msg.get("chat", {}).get("id") or from_user.get("id")
+        user_info = from_user
+        user_text = callback_query.get("data", "")
+    elif message_obj:
+        # Standard user text message
+        chat_id = message_obj.get("chat", {}).get("id")
+        user_info = message_obj.get("from", {})
+        user_text = message_obj.get("text", "").strip()
+
+    if not chat_id or not user_text:
+        return {"status": "ignored", "reason": "no_chat_or_text"}
+
+    logger.info("Processing Telegram message from chat %s: '%s'", chat_id, user_text)
+
+    # 1. Show typing status
+    await telegram_service.send_chat_action(chat_id, "typing")
+
+    # 2. Handle /start or /help command
+    if user_text.lower() in ["/start", "/help"]:
+        welcome_text = (
+            "🙏 <b>Welcome to MerchantMind Bangalore!</b>\n\n"
+            "I am your autonomous AI shopping concierge across <b>214 verified Bangalore stores</b>.\n\n"
+            "Tell me what you're craving or your budget, for example:\n"
+            "• <i>\"Truffle cake under ₹600\"</i>\n"
+            "• <i>\"Ghee roast masala dosa under ₹200\"</i>\n"
+            "• <i>\"Filter coffee in Indiranagar\"</i>\n\n"
+            "You can add items to your cart and checkout directly with <b>Razorpay</b>!"
+        )
+        quick_buttons = [
+            {"text": "🍰 Truffle Cakes", "callback_data": "Truffle cake under 600"},
+            {"text": "🥞 Benne Dosa", "callback_data": "Ghee masala dosa under 200"},
+            {"text": "☕ Filter Coffee", "callback_data": "Filter coffee"},
+            {"text": "🛒 View Cart", "callback_data": "view cart"},
+        ]
+        await telegram_service.send_interactive_buttons(chat_id, welcome_text, quick_buttons)
+        return {"status": "started"}
+
+    try:
+        # 3. Resolve customer session
+        conversation, customer, merchant = await get_or_create_telegram_session(
+            db=db,
+            chat_id=chat_id,
+            user_info=user_info,
+        )
+
+        from app.services.telegram_session import handle_telegram_order_management
+        handled = await handle_telegram_order_management(
+            db=db,
+            customer=customer,
+            chat_id=chat_id,
+            user_text=user_text,
+            conversation=conversation,
+        )
+        if handled:
+            return {"status": "success"}
+
+        # 4. Route message through AgentRouter (City-wide discovery if merchant is None, Shopping if locked)
+        agent_res = await agent_router.route_customer_message(
+            db=db,
+            merchant=merchant,
+            conversation=conversation,
+            user_message=user_text,
+        )
+        await db.commit()
+
+        # 5. Format inline buttons for recommendations
+        buttons = []
+        if agent_res.recommendations:
+            for r in agent_res.recommendations[:3]:
+                store_short = r.merchant_name.split()[0] if r.merchant_name else "Store"
+                store_label = f" from {store_short}"
+                cb_data = f"Add 1 {r.name[:25]}{store_label}"[:55]
+                buttons.append({
+                    "text": f"🛒 {store_short} — {r.name[:16]} (₹{r.price:.0f})",
+                    "callback_data": cb_data,
+                })
+            if agent_res.cart_total and agent_res.cart_total > 0:
+                buttons.append({"text": f"💳 Checkout & Pay (₹{agent_res.cart_total:.0f})", "callback_data": "checkout"})
+                buttons.append({"text": "🛒 View Cart", "callback_data": "view cart"})
+            elif buttons:
+                buttons.append({"text": "💳 Checkout & Pay", "callback_data": "checkout"})
+
+        # 6. Send text or interactive message
+        if buttons and not agent_res.payment_link:
+            await telegram_service.send_interactive_buttons(
+                chat_id=chat_id,
+                text=agent_res.message,
+                buttons=buttons,
+                parse_mode="HTML",
+            )
+        else:
+            await telegram_service.send_message(
+                chat_id=chat_id,
+                text=agent_res.message,
+                parse_mode="HTML",
+            )
+
+        # 7. Deliver Razorpay payment link directly if checkout was triggered
+        if agent_res.payment_link:
+            await telegram_service.send_payment_link_message(
+                chat_id=chat_id,
+                amount_inr=agent_res.cart_total,
+                payment_link=agent_res.payment_link,
+                merchant_name=merchant.name,
+            )
+
+    except Exception as exc:
+        logger.error("Error processing Telegram message: %s", exc, exc_info=True)
+        await telegram_service.send_message(
+            chat_id=chat_id,
+            text="I'm sorry, I encountered a temporary issue processing your request. Please try again!",
+        )
 
     return {"status": "success"}
 

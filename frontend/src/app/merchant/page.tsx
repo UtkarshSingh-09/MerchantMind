@@ -140,7 +140,7 @@ export default function MerchantPortalPage() {
       setMessages([
         {
           role: "assistant",
-          content: `👋 Welcome to the **${selectedMerchant.name}** AI Operations & Growth Console!\n\nI am your autonomous operations agent connected directly to your live catalog, POS webhooks, and Razorpay transactions.\n\n• **Sales Intelligence**: Ask *"How were sales today?"* or *"Show top selling items this month"*\n• **Inventory Control**: Command *"Mark Red Velvet cake sold out"* or *"Update price of Croissant to ₹135"*\n• **Live POS Sync**: Use the **POS Sync Gateway** tab above to trigger real-time stock webhooks\n• **Growth & Recovery**: Ask *"Find abandoned carts and draft a WhatsApp recovery message"*`,
+          content: `👋 Welcome to the **${selectedMerchant.name}** AI Operations & Growth Console!\n\nI am your autonomous operations agent connected directly to your live catalog, POS webhooks, and Razorpay transactions.\n\n• **Sales Intelligence**: Ask *"How were sales today?"* or *"Show top selling items this month"*\n• **Inventory Control**: Command *"Mark Red Velvet cake sold out"* or *"Update price of Croissant to ₹135"*\n• **Live POS Sync**: Use the **POS Sync Gateway** tab above to trigger real-time stock webhooks\n• **Growth & Recovery**: Ask *"Find abandoned carts and draft a Telegram recovery message"*`,
           timestamp: new Date().toISOString(),
         },
       ]);
@@ -560,7 +560,7 @@ export default function MerchantPortalPage() {
                       <div className="mt-3.5 rounded-xl border border-emerald-500/30 bg-emerald-950/30 p-3.5 space-y-2">
                         <div className="flex items-center justify-between text-[11px] font-bold text-emerald-400">
                           <span className="flex items-center gap-1.5">
-                            <MessageSquare className="h-3.5 w-3.5" /> WhatsApp Recovery Draft Ready
+                            <MessageSquare className="h-3.5 w-3.5" /> Telegram Recovery Draft Ready
                           </span>
                           <button
                             onClick={() =>

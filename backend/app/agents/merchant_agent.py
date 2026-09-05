@@ -145,6 +145,60 @@ MERCHANT_TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_top_products",
+            "description": "Get ranking of the store's top-selling products by units sold and revenue for a specified period (this_week, today, this_month, last_7_days).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "period": {
+                        "type": "string",
+                        "enum": ["today", "yesterday", "this_week", "this_month", "last_7_days", "last_30_days"],
+                        "description": "Time period to calculate top sellers for (default: this_week)",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Number of top items to return (default: 5)",
+                    },
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "add_new_product",
+            "description": "Add a new dish or product item to the store's catalog via conversational chat. Creates product in database with price, category, and stock.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Product or dish name (e.g. 'Mango Mousse Cake', 'Special Paneer Biryani')",
+                    },
+                    "price": {
+                        "type": "number",
+                        "description": "Price in INR (e.g. 450)",
+                    },
+                    "category": {
+                        "type": "string",
+                        "description": "Category (e.g. Cakes, Pastries, Biryani, South Indian, Beverages)",
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Optional appetizing product description",
+                    },
+                    "is_veg": {
+                        "type": "boolean",
+                        "description": "True for vegetarian, False for non-veg (default: True)",
+                    },
+                },
+                "required": ["name", "price"],
+            },
+        },
+    },
 ]
 
 
@@ -159,16 +213,20 @@ Store Description: {merchant.description or 'Specialty Retail & Food Store'}.
 
 🎯 YOUR OPERATIONAL CAPABILITIES:
 1. **Sales & Revenue Intelligence**: Call `get_sales_summary` when the merchant asks about daily/weekly/monthly revenue, top-selling items, or average order value. Always format results in clear markdown tables!
-2. **Instant Inventory Updates**: Call `update_stock` when the merchant mentions stock changes (e.g., "we're out of red velvet cake", "mark mango yogurt back in stock", "change sourdough price to ₹150").
-3. **Restocking & Demand Alerts**: Call `suggest_reorder` to identify high-velocity items at risk of running out.
-4. **Cart Abandonment Recovery**: Call `get_abandoned_carts` and `draft_recovery_message` to help the merchant follow up on high-intent lost sales.
+2. **Top Selling Products**: Call `get_top_products` when the merchant asks "what are my best sellers?", "ranking this week", or "highest revenue items".
+3. **Instant Inventory Updates**: Call `update_stock` when the merchant mentions stock changes (e.g., "we're out of red velvet cake", "mark mango yogurt back in stock", "change sourdough price to ₹150").
+4. **Catalog Expansion**: Call `add_new_product` when the merchant says "add a new Mango Mousse Cake at ₹450 in Cakes category".
+5. **Restocking & Demand Alerts**: Call `suggest_reorder` to identify high-velocity items at risk of running out.
+6. **Cart Abandonment Recovery**: Call `get_abandoned_carts` and `draft_recovery_message` to help the merchant follow up on high-intent lost sales.
 
 FORMATTING & TONE:
 - Be professional, sharp, and data-driven like a chief operating officer.
+- Always respond exclusively in clean, professional English. Never use Hindi or regional slang.
 - Use markdown tables for multi-row data.
 - Format all currency cleanly as ₹XXX.
 - Confirm any database modifications clearly with bold highlights.
 """
+
 
 
 class MerchantAgent:
@@ -259,7 +317,53 @@ class MerchantAgent:
                             output_data=tool_result,
                         )
 
+                    elif fn_name == "get_top_products":
+                        period = fn_args.get("period", "this_week")
+                        lim = int(fn_args.get("limit", 5))
+                        tool_result = await merchant_service.get_top_products_for_period(
+                            db, merchant.id, period=period, limit=lim
+                        )
+                        action_data["top_products"] = tool_result
+                        await log_audit_event(
+                            db=db,
+                            event_type=AuditEventType.AGENT_DECISION,
+                            merchant_id=merchant.id,
+                            conversation_id=conversation.id,
+                            action="top_products_query",
+                            reasoning=f"Fetched top products for period: {period}",
+                            input_data=fn_args,
+                            output_data=tool_result,
+                        )
+
+                    elif fn_name == "add_new_product":
+                        name = fn_args.get("name", "")
+                        price = float(fn_args.get("price", 0.0))
+                        cat = fn_args.get("category", "General")
+                        desc = fn_args.get("description", "")
+                        is_v = fn_args.get("is_veg", True)
+                        tool_result = await merchant_service.add_product_to_catalog(
+                            db=db,
+                            merchant_id=merchant.id,
+                            name=name,
+                            price=price,
+                            category=cat,
+                            description=desc,
+                            is_veg=is_v,
+                        )
+                        action_data["new_product"] = tool_result
+                        await log_audit_event(
+                            db=db,
+                            event_type=AuditEventType.AGENT_DECISION,
+                            merchant_id=merchant.id,
+                            conversation_id=conversation.id,
+                            action="add_product_to_catalog",
+                            reasoning=f"Added new product '{name}' (₹{price}) in category '{cat}'",
+                            input_data=fn_args,
+                            output_data=tool_result,
+                        )
+
                     elif fn_name == "update_stock":
+
                         pname = fn_args.get("product_name", "")
                         in_stock = fn_args.get("in_stock")
                         new_p = fn_args.get("new_price")

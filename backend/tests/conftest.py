@@ -11,10 +11,14 @@ from app.config import settings
 from app.database import Base, get_db
 from app.main import app
 
+import os
+
 # Create test engine using NullPool so each test/request gets its own fresh connection
-db_url = settings.resolved_database_url
-if ":5432" in db_url:
-    db_url = db_url.replace(":5432", ":5433")
+db_url = os.environ.get("TEST_DATABASE_URL") or os.environ.get("DATABASE_URL") or settings.resolved_database_url
+is_ci = bool(os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS"))
+if not is_ci and not os.environ.get("TEST_DATABASE_URL"):
+    if ("localhost" in db_url or "127.0.0.1" in db_url) and ":5432" in db_url:
+        db_url = db_url.replace(":5432", ":5433")
 
 test_engine = create_async_engine(
     db_url,
@@ -51,7 +55,12 @@ async def setup_test_db():
         await conn.run_sync(Base.metadata.create_all)
         # Execute safe auto-migrations for newly added columns
         await conn.execute(text("ALTER TABLE merchants ADD COLUMN IF NOT EXISTS api_key_hash VARCHAR(64);"))
+        await conn.execute(text("ALTER TABLE merchants ADD COLUMN IF NOT EXISTS neighborhood VARCHAR(100);"))
+        await conn.execute(text("ALTER TABLE merchants ADD COLUMN IF NOT EXISTS cuisine_type VARCHAR(100);"))
+        await conn.execute(text("ALTER TABLE merchants ADD COLUMN IF NOT EXISTS avg_rating FLOAT DEFAULT 4.5;"))
         await conn.execute(text("ALTER TABLE products ADD COLUMN IF NOT EXISTS price_paise INTEGER;"))
+        await conn.execute(text("ALTER TABLE products ADD COLUMN IF NOT EXISTS rating FLOAT DEFAULT 4.5;"))
+        await conn.execute(text("ALTER TABLE products ADD COLUMN IF NOT EXISTS is_veg BOOLEAN DEFAULT TRUE;"))
         await conn.execute(text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS total_paise BIGINT;"))
         await conn.execute(text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS subtotal_paise BIGINT;"))
         await conn.execute(text("ALTER TABLE customers ADD COLUMN IF NOT EXISTS saved_addresses JSONB DEFAULT '[]'::jsonb;"))

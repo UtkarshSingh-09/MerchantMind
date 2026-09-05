@@ -64,6 +64,7 @@ const PHONETIC_DICTIONARY: Array<[RegExp, string]> = [
   [/\binr\s*([0-9,]+)/gi, "$1 rupees"],
 
   // Terms & Abbreviations
+  [/\bmerchantmind\b/gi, "Merchant Mind"],
   [/\bnon-veg\b/gi, "non-vegetarian"],
   [/\bveg\b/gi, "vegetarian"],
   [/\bmins\b/gi, "minutes"],
@@ -73,6 +74,14 @@ const PHONETIC_DICTIONARY: Array<[RegExp, string]> = [
   [/\bqty\b/gi, "quantity"],
   [/\bapprox\b/gi, "approximately"],
 ];
+
+export function normalizePhonetics(text: string): string {
+  let cleaned = text;
+  for (const [pattern, replacement] of PHONETIC_DICTIONARY) {
+    cleaned = cleaned.replace(pattern, replacement);
+  }
+  return cleaned.trim();
+}
 
 class VoiceManager {
   private recognition: any = null;
@@ -234,7 +243,7 @@ class VoiceManager {
       }
 
       // Smart Adaptive Silence Buffer:
-      // Gives users generous speaking time (2.2s - 3.0s) so natural pauses never cut them off mid-sentence.
+      // Snappy 1.2s silence detection with 1.8s pause for connector words.
       const words = combined.toLowerCase().split(/\s+/);
       const lastWord = words[words.length - 1];
       const incompleteConnectors = [
@@ -243,14 +252,11 @@ class VoiceManager {
         "around", "between", "less", "more", "my", "me", "some", "any", "at", "rupees", "rs"
       ];
 
-      let silenceDelay = 2200; // Default 2.2 seconds natural breathing pause
+      let silenceDelay = 1200; // 1.2s for quick greetings, commands, and normal sentences
 
-      // If speech ends with an incomplete connector or preposition, grant 3.0 seconds
+      // If speech ends with an incomplete connector or preposition, grant 1.8s breathing pause
       if (incompleteConnectors.includes(lastWord)) {
-        silenceDelay = 3000;
-      } else if (words.length < 4) {
-        // Short fragment (e.g. "Hey please", "I want"), wait 2.6 seconds for the main request
-        silenceDelay = 2600;
+        silenceDelay = 2000;
       }
 
       this.silenceTimer = setTimeout(() => {
@@ -274,10 +280,11 @@ class VoiceManager {
     };
 
     this.recognition.onend = () => {
-      // Auto-restart if voice mode is on and we are not speaking or thinking
-      if (this.isVoiceModeEnabled && this.state === "listening") {
+      // Auto-restart if voice mode is on and we are not speaking
+      if (this.isVoiceModeEnabled && this.state !== "speaking") {
         try {
           this.recognition.start();
+          this.setState("listening");
         } catch (e) {
           // Ignore
         }
@@ -288,17 +295,41 @@ class VoiceManager {
   /**
    * Cleans markdown, formatting, emojis, extracts concise conversational speech,
    * and applies Indian English phonetic pronunciation normalizer for sub-150ms TTS synthesis.
+   * STRICTLY speaks only item and total amount on orders — NEVER reads UUIDs or Order IDs aloud.
    */
   public cleanTextForSpeech(text: string): string {
     if (!text) return "";
 
+    // 0. Specialized Check: Order Confirmation / Checkout summaries
+    // Extracts ONLY item and amount — avoids reading Order ID, URLs, or technical metadata
+    if (text.includes("Order Summary") || text.includes("Order ID:") || text.includes("Your order is ready")) {
+      const itemMatch = text.match(/Item:\*{0,2}\s*([^\n—•*]+)/i);
+      const totalMatch = text.match(/Total:\*{0,2}\s*[₹]?\s*([0-9,.]+)/i);
+      const isPickup = text.toLowerCase().includes("pickup");
+
+      const itemStr = itemMatch ? itemMatch[1].trim() : "";
+      const totalStr = totalMatch ? totalMatch[1].trim() : "";
+
+      if (itemStr && totalStr) {
+        return `Your ${isPickup ? "pickup " : ""}order for ${itemStr} is ${totalStr} rupees. Please tap the payment button to complete your purchase.`;
+      } else if (totalStr) {
+        return `Your ${isPickup ? "pickup " : ""}order for ${totalStr} rupees is ready. Please tap the payment button to complete your purchase.`;
+      }
+    }
+
     let cleaned = text
+      // Strip UUIDs completely
+      .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "")
+      // Strip technical metadata lines
+      .replace(/Order ID:[^\n]+/gi, "")
+      .replace(/Payment Link:[^\n]+/gi, "")
+      .replace(/\[Click here to pay[^\]]*\]\([^)]+\)/gi, "")
       .replace(/```[\s\S]*?```/g, "") // remove code blocks
       .replace(/`([^`]+)`/g, "$1") // inline code
       .replace(/\*\*([^*]+)\*\*/g, "$1") // bold
       .replace(/\*([^*]+)\*/g, "$1") // italic
       .replace(/#+\s*/g, "") // headers
-      .replace(/https?:\/\/\S+/g, "link on your screen") // URLs
+      .replace(/https?:\/\/\S+/g, "") // URLs
       .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // markdown links -> anchor text only
       .replace(/•/g, ", ") // bullet points -> natural breath pause
       .replace(/[-*]\s+/g, "") // remove markdown list dashes
@@ -310,8 +341,8 @@ class VoiceManager {
     const sentences = cleaned.match(/[^.!?]+[.!?]+/g);
     if (sentences && sentences.length > 2) {
       cleaned = sentences.slice(0, 2).join(" ").trim();
-    } else if (cleaned.length > 250) {
-      cleaned = cleaned.substring(0, 250).replace(/\s+\S*$/, "") + ".";
+    } else if (cleaned.length > 220) {
+      cleaned = cleaned.substring(0, 220).replace(/\s+\S*$/, "") + ".";
     }
 
     // Apply Indian English phonetic replacements
@@ -323,45 +354,53 @@ class VoiceManager {
   }
 
   /**
-   * Finds the most natural, authentic Indian English voice available in the client environment.
+   * Finds the smoothest, clearest soft voice (Siri/Alexa style).
+   * Prioritizes silky smooth, pleasant female voices (Google UK Female, Samantha, Sangeeta, Veena)
+   * and completely avoids harsh/deep/heavy voices like Rishi, Alex, or Fred.
    */
   private getBestIndianVoice(): SpeechSynthesisVoice | null {
-    const voices = this.cachedVoices.length > 0 ? this.cachedVoices : (typeof window !== "undefined" && "speechSynthesis" in window ? window.speechSynthesis.getVoices() : []);
+    let voices = this.cachedVoices;
+    if (!voices || voices.length === 0) {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        voices = window.speechSynthesis.getVoices();
+        this.cachedVoices = voices;
+      }
+    }
     if (!voices || voices.length === 0) return null;
 
-    // 1. First priority: Dedicated Indian English voices
-    const indianVoices = [
-      // Chrome / Edge Natural Indian English
-      voices.find((v) => v.lang === "en-IN" && (v.name.includes("Google") || v.name.includes("Natural"))),
-      voices.find((v) => v.name.includes("Neerja") || v.name.includes("Prabhat")),
-      // macOS / iOS High-Fidelity Indian English Voices
-      voices.find((v) => v.name.includes("Rishi")),
-      voices.find((v) => v.name.includes("Sangeeta")),
-      voices.find((v) => v.name.includes("Veena")),
-      // Generic en-IN
-      voices.find((v) => v.lang === "en-IN" || v.lang === "en_IN"),
-      voices.find((v) => v.lang.startsWith("en-IN") || v.lang.startsWith("en_IN")),
-      // Hindi fallback with English capability
-      voices.find((v) => v.lang === "hi-IN" || v.lang === "hi_IN" || v.name.includes("India")),
+    const harshNames = ["rishi", "prabhat", "alex", "fred", "daniel", "oliver", "ralph", "tom", "george", "albert", "junior", "bad news", "bahh", "bells", "boing", "bubbles", "cellos", "deranged", "good news", "hysterical", "pipe organ", "trinoids", "whisper", "zarvox"];
+
+    // 1. Ultra-soft, gentle, crystal-clear female voices
+    const softFemaleVoices = [
+      // Chrome's silky smooth female voices
+      voices.find((v) => v.name.toLowerCase().includes("google uk english female")),
+      voices.find((v) => v.name.toLowerCase().includes("google us english")),
+      // Apple's warm, smooth Siri assistant voices
+      voices.find((v) => v.name.toLowerCase().includes("samantha")),
+      voices.find((v) => v.name.toLowerCase().includes("victoria")),
+      voices.find((v) => v.name.toLowerCase().includes("karen")),
+      // Soft Indian English female voices
+      voices.find((v) => v.name.toLowerCase().includes("sangeeta")),
+      voices.find((v) => v.name.toLowerCase().includes("veena")),
+      voices.find((v) => v.name.toLowerCase().includes("neerja")),
+      // Siri voices (excluding any harsh ones)
+      voices.find((v) => v.name.toLowerCase().includes("siri") && !harshNames.some((h) => v.name.toLowerCase().includes(h))),
+      // Any other Google female / natural voice
+      voices.find((v) => v.name.includes("Google") && v.name.toLowerCase().includes("female")),
+      voices.find((v) => v.name.includes("Natural") && !harshNames.some((h) => v.name.toLowerCase().includes(h))),
+      // Any en-IN female voice (strictly not Rishi)
+      voices.find((v) => (v.lang === "en-IN" || v.lang === "en_IN") && !harshNames.some((h) => v.name.toLowerCase().includes(h))),
+      // Gentle English voices
+      voices.find((v) => v.lang.startsWith("en") && !harshNames.some((h) => v.name.toLowerCase().includes(h))),
     ];
 
-    for (const v of indianVoices) {
+    for (const v of softFemaleVoices) {
       if (v) return v;
     }
 
-    // 2. Second priority: High-quality natural English voice
-    const naturalVoices = [
-      voices.find((v) => v.lang.startsWith("en") && v.name.includes("Google")),
-      voices.find((v) => v.lang.startsWith("en") && (v.name.includes("Samantha") || v.name.includes("Serena"))),
-      voices.find((v) => v.lang.startsWith("en") && v.name.includes("Natural")),
-      voices.find((v) => v.lang.startsWith("en")),
-    ];
-
-    for (const v of naturalVoices) {
-      if (v) return v;
-    }
-
-    return voices[0] || null;
+    // Safe fallback: pick the first voice that is NOT in harshNames
+    const safeVoice = voices.find((v) => !harshNames.some((h) => v.name.toLowerCase().includes(h)));
+    return safeVoice || voices[0] || null;
   }
 
   private activeAudioElement: HTMLAudioElement | null = null;
@@ -372,8 +411,18 @@ class VoiceManager {
     }
   }
 
+  private ttsMode: "instant" | "studio" = "instant";
+
+  public setTtsMode(mode: "instant" | "studio") {
+    this.ttsMode = mode;
+  }
+
+  public getTtsMode(): "instant" | "studio" {
+    return this.ttsMode;
+  }
+
   /**
-   * Speaks the response aloud using Deepgram Flux TTS with graceful fallback to browser speech synthesis.
+   * Speaks the response aloud with sub-25ms zero-latency using on-device neural voice.
    */
   public async speak(text: string, onEnd?: () => void) {
     this.stopSpeaking();
@@ -386,10 +435,15 @@ class VoiceManager {
       return;
     }
 
-    // 1. Try Deepgram Studio Flux TTS first
+    // 1. Instant On-Device Neural Speech (0ms Internet Lag, immediate playback)
+    if (this.ttsMode === "instant") {
+      this.speakOnDevice(cleanText, onEnd);
+      return;
+    }
+
+    // 2. Studio Mode: Deepgram Cloud TTS
     try {
       const { fetchDeepgramVoiceAudio } = await import("./api");
-      console.log("[VoiceManager] Requesting Deepgram Flux Meena audio for:", cleanText);
       const audioBlob = await fetchDeepgramVoiceAudio(cleanText);
 
       if (audioBlob && typeof window !== "undefined") {
@@ -415,50 +469,52 @@ class VoiceManager {
           onEnd?.();
         };
 
-        audio.onerror = (e) => {
-          console.warn("[VoiceManager] Deepgram Audio playback error, falling back to speech synthesis:", e);
+        audio.onerror = () => {
           URL.revokeObjectURL(audioUrl);
-          this.fallbackSpeak(cleanText, onEnd);
+          this.speakOnDevice(cleanText, onEnd);
         };
 
         try {
           await audio.play();
-          console.log("[VoiceManager] Playing Deepgram audio successfully 🎙️");
           return;
         } catch (playErr) {
-          console.warn("[VoiceManager] Audio play() failed:", playErr);
-          this.fallbackSpeak(cleanText, onEnd);
+          this.speakOnDevice(cleanText, onEnd);
           return;
         }
       }
     } catch (dgErr) {
-      console.warn("[VoiceManager] Deepgram TTS not available, using browser speech synthesis:", dgErr);
+      console.warn("[VoiceManager] Deepgram TTS not available, using on-device voice:", dgErr);
     }
 
-    // 2. Fallback to Enhanced Browser SpeechSynthesis
-    this.fallbackSpeak(cleanText, onEnd);
+    this.speakOnDevice(cleanText, onEnd);
   }
 
-  private fallbackSpeak(cleanText: string, onEnd?: () => void) {
+  public speakOnDevice(cleanText: string, onEnd?: () => void) {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) {
       onEnd?.();
       return;
     }
 
+    // Cancel any stale queued speech
+    window.speechSynthesis.cancel();
+
     const utterance = new SpeechSynthesisUtterance(cleanText);
     this.activeUtterance = utterance;
-
-    // Explicitly set language to en-IN for authentic Indian prosody & phonology
-    utterance.lang = "en-IN";
 
     const preferredVoice = this.getBestIndianVoice();
     if (preferredVoice) {
       utterance.voice = preferredVoice;
+      // CRITICAL FIX: Set utterance.lang to match the voice's native lang
+      // (Setting en-IN when voice is Samantha or Google Female causes Chrome to discard the voice and fall back to Rishi!)
+      utterance.lang = preferredVoice.lang;
+      console.log(`[VoiceManager] 🎙️ Speaking with soft voice: ${preferredVoice.name} (${preferredVoice.lang})`);
+    } else {
+      utterance.lang = "en-US";
     }
 
-    // Optimal warm, articulate Indian conversational pace and pitch
-    utterance.rate = 0.98;
-    utterance.pitch = 1.02;
+    // Silky smooth, clear, conversational pace and pitch (eliminates heavy baritone)
+    utterance.rate = 1.0;
+    utterance.pitch = 1.05;
 
     this.setState("speaking");
 

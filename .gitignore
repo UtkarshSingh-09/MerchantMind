@@ -21,6 +21,11 @@ build/
 *.swo
 .DS_Store
 
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
 # Docker
 postgres_data/
 redis_data/

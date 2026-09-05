@@ -60,6 +60,21 @@ async def send_chat_message(
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
+    from app.services.conversation_service import update_conversation_cart
+    if payload.cart_items:
+        server_cart_items = (conversation.cart or {}).get("items", [])
+        if not server_cart_items or len(payload.cart_items) >= len(server_cart_items):
+            cart_total = sum(float(it.get("price", 0)) * int(it.get("quantity", 1)) for it in payload.cart_items)
+            m_id = payload.cart_items[0].get("merchant_id") if payload.cart_items else None
+            update_conversation_cart(
+                conversation,
+                {
+                    "items": payload.cart_items,
+                    "total": round(cart_total, 2),
+                    "merchant_id": m_id,
+                },
+            )
+
     # If conversation already has a locked merchant (from a previous select_store),
     # load that merchant so we continue in Shopping Mode
     if not merchant and conversation.merchant_id:
@@ -112,30 +127,66 @@ async def send_chat_message_stream(
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
+    from app.services.conversation_service import update_conversation_cart
+    if payload.cart_items:
+        server_cart_items = (conversation.cart or {}).get("items", [])
+        if not server_cart_items or len(payload.cart_items) >= len(server_cart_items):
+            cart_total = sum(float(it.get("price", 0)) * int(it.get("quantity", 1)) for it in payload.cart_items)
+            m_id = payload.cart_items[0].get("merchant_id") if payload.cart_items else None
+            update_conversation_cart(
+                conversation,
+                {
+                    "items": payload.cart_items,
+                    "total": round(cart_total, 2),
+                    "merchant_id": m_id,
+                },
+            )
+
     if not merchant and conversation.merchant_id:
         stmt = select(Merchant).where(Merchant.id == conversation.merchant_id)
         res = await db.execute(stmt)
         merchant = res.scalar_one_or_none()
 
+    # Ensure conversation row is committed before streaming begins
+    await db.commit()
+    conv_id = conversation.id
+    m_id = merchant.id if merchant else (conversation.merchant_id if conversation else None)
+
+    from app.database import async_session
     from fastapi.responses import StreamingResponse
 
     async def sse_generator():
-        try:
-            async for event in agent_router.route_customer_message_streaming(
-                db=db,
-                merchant=merchant,
-                conversation=conversation,
-                user_message=payload.message,
-            ):
-                yield f"data: {json.dumps(event)}\n\n"
-            await db.commit()
-        except Exception as e:
-            logger.error("SSE stream error: %s", e, exc_info=True)
-            err_event = {
-                "type": "error",
-                "content": f"Streaming error: {str(e)}",
-            }
-            yield f"data: {json.dumps(err_event)}\n\n"
+        async with async_session() as stream_db:
+            try:
+                c_stmt = select(Conversation).where(Conversation.id == conv_id)
+                c_res = await stream_db.execute(c_stmt)
+                stream_conv = c_res.scalar_one_or_none()
+                if not stream_conv:
+                    return
+
+                stream_merchant = None
+                curr_m_id = m_id or stream_conv.merchant_id
+                if curr_m_id:
+                    m_stmt = select(Merchant).where(Merchant.id == curr_m_id)
+                    m_res = await stream_db.execute(m_stmt)
+                    stream_merchant = m_res.scalar_one_or_none()
+
+                async for event in agent_router.route_customer_message_streaming(
+                    db=stream_db,
+                    merchant=stream_merchant,
+                    conversation=stream_conv,
+                    user_message=payload.message,
+                ):
+                    yield f"data: {json.dumps(event)}\n\n"
+                
+                await stream_db.commit()
+            except Exception as e:
+                logger.error("SSE stream error: %s", e, exc_info=True)
+                err_event = {
+                    "type": "error",
+                    "content": f"Streaming error: {str(e)}",
+                }
+                yield f"data: {json.dumps(err_event)}\n\n"
 
     return StreamingResponse(
         sse_generator(),

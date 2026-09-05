@@ -6,7 +6,6 @@ import { motion } from "framer-motion";
 import {
   Plus,
   Check,
-  Sparkles,
   Tag,
   Cake,
   UtensilsCrossed,
@@ -229,10 +228,10 @@ export function ProductCard({ product, onAddToCart, isAdding = false }: ProductC
     <motion.div
       whileHover={{ y: -3 }}
       transition={{ duration: 0.2, ease: "easeOut" }}
-      className="group relative flex h-full flex-col justify-between overflow-hidden rounded-2xl border border-[#2A2A3E] bg-[#12121E]/95 p-3.5 shadow-xl backdrop-blur-xl transition-all duration-300 hover:border-[#7C3AED]/50 hover:shadow-2xl hover:shadow-[#7C3AED]/15"
+      className="group relative flex h-full flex-col justify-between overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0E1019]/90 p-3.5 shadow-xl backdrop-blur-xl transition-all duration-300 hover:border-white/[0.2] hover:shadow-2xl hover:shadow-black/60"
     >
       {/* 1. Top Image Banner with Perfect Aspect Ratio & Alignment */}
-      <div className="relative mb-3 h-44 w-full shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-[#1A1A2C] to-[#0D0D18] border border-[#2A2A3E]/60">
+      <div className="relative mb-3 h-44 w-full shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-[#151722] to-[#0A0C14] border border-white/[0.06]">
         {resolvedImage && !imgError ? (
           <div className="relative h-full w-full">
             <Image
@@ -245,7 +244,7 @@ export function ProductCard({ product, onAddToCart, isAdding = false }: ProductC
               unoptimized
             />
             {/* Subtle Vignette Gradient for Clean Badge Contrast */}
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0A0A12]/80 via-transparent to-black/30" />
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#08090E]/80 via-transparent to-black/30" />
           </div>
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center p-3 text-center">
@@ -261,13 +260,13 @@ export function ProductCard({ product, onAddToCart, isAdding = false }: ProductC
         )}
 
         {/* Category Pill (Top Left) */}
-        <span className="absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded-full bg-[#0A0A12]/90 px-2 py-0.5 text-[10px] font-semibold text-zinc-200 backdrop-blur-md border border-[#2A2A3E] shadow-sm">
-          <Tag className="h-2.5 w-2.5 text-[#0891B2]" />
+        <span className="absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded-full bg-[#08090E]/90 px-2 py-0.5 text-[10px] font-semibold text-zinc-200 backdrop-blur-md border border-white/10 shadow-sm">
+          <Tag className="h-2.5 w-2.5 text-indigo-400" />
           {product.category || visual.label}
         </span>
 
         {/* Verified In-Stock Badge (Top Right) */}
-        <span className="absolute right-2.5 top-2.5 inline-flex items-center gap-1 rounded-full bg-[#0A0A12]/90 px-2 py-0.5 text-[9px] font-semibold text-emerald-400 backdrop-blur-md border border-emerald-500/35 shadow-sm">
+        <span className="absolute right-2.5 top-2.5 inline-flex items-center gap-1 rounded-full bg-[#08090E]/90 px-2 py-0.5 text-[9px] font-semibold text-emerald-400 backdrop-blur-md border border-emerald-500/35 shadow-sm">
           <ShieldCheck className="h-2.5 w-2.5" />
           In Stock
         </span>
@@ -278,10 +277,10 @@ export function ProductCard({ product, onAddToCart, isAdding = false }: ProductC
         <div>
           {/* Title & Price Header */}
           <div className="flex items-start justify-between gap-2 min-h-[38px]">
-            <h4 className="font-semibold text-xs sm:text-sm text-[#F0EEFF] group-hover:text-[#A78BFA] transition-colors leading-snug line-clamp-2">
+            <h4 className="font-semibold text-xs sm:text-sm text-zinc-100 group-hover:text-white transition-colors leading-snug line-clamp-2">
               {product.name}
             </h4>
-            <span className="text-sm font-bold text-[#0891B2] shrink-0 font-mono">
+            <span className="text-sm font-bold text-emerald-400 shrink-0 font-mono">
               ₹{product.price.toFixed(0)}
             </span>
           </div>
@@ -297,28 +296,29 @@ export function ProductCard({ product, onAddToCart, isAdding = false }: ProductC
             )}
           </div>
 
-          {/* AI Reasoning / Store Pill */}
+          {/* Store Recommendation Pill (NO AI SPARKLES) */}
           {product.reasoning && (
-            <div className="mt-2 flex items-start gap-1.5 rounded-xl bg-[#7C3AED]/10 border border-[#7C3AED]/25 p-2 text-xs text-[#A78BFA]">
-              <Sparkles className="mt-0.5 h-3 w-3 shrink-0 text-[#7C3AED]" />
-              <span className="text-[11px] font-normal leading-relaxed line-clamp-2">
+            <div className="mt-2 flex items-start gap-2 rounded-xl bg-white/[0.03] border border-white/[0.08] p-2 text-xs text-zinc-300">
+              <span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-400 shrink-0" />
+              <span className="text-[11px] font-normal leading-relaxed line-clamp-2 text-zinc-300">
                 {product.reasoning}
               </span>
             </div>
           )}
         </div>
 
-        {/* 3. Bottom Action Button Locked to Baseline */}
+        {/* 3. Bottom Action Button (21st.dev Style) */}
         <div className="mt-3 pt-1">
           <motion.button
             whileTap={{ scale: 0.96 }}
-            whileHover={{ scale: 1.01 }}
+            whileHover={{ scale: 1.01, y: -1 }}
+            transition={{ type: "spring", stiffness: 400, damping: 25 }}
             onClick={handleAdd}
             disabled={isAdding}
             className={`flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold text-white shadow-md transition-all disabled:opacity-50 cursor-pointer ${
               justAdded
-                ? "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/20"
-                : "bg-gradient-to-r from-[#7C3AED] via-[#6D28D9] to-[#5B21B6] hover:from-[#6D28D9] hover:to-[#4C1D95] shadow-[#7C3AED]/25 hover:shadow-lg hover:shadow-[#7C3AED]/35"
+                ? "bg-emerald-600 hover:bg-emerald-500 shadow-[0_0_20px_-3px_rgba(16,185,129,0.4)]"
+                : "bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-800 hover:from-indigo-500 hover:to-purple-700 shadow-[0_0_20px_-3px_rgba(99,102,241,0.35),inset_0_1px_0_0_rgba(255,255,255,0.2)] border border-indigo-400/30"
             }`}
           >
             {justAdded ? (

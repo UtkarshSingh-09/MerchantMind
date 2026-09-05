@@ -11,15 +11,24 @@ import { ConvergenceSingularity } from "@/components/ConvergenceSingularity";
 import { TerminalDeploymentCTA } from "@/components/TerminalDeploymentCTA";
 import { LightRayWarp } from "@/components/ui/light-ray-warp";
 import { LiquidMetalButton } from "@/components/ui/liquid-metal-button";
+import { PresentationModal, PresentationTab } from "@/components/PresentationModal";
 
 export default function HomePage() {
   const router = useRouter();
   const [showVaultModal, setShowVaultModal] = useState(false);
+  const [showPresentationModal, setShowPresentationModal] = useState(false);
+  const [presentationTab, setPresentationTab] = useState<PresentationTab>("analytics");
   const [isWarping, setIsWarping] = useState(false);
   const [scrollY, setScrollY] = useState(0);
 
+  const openPresentation = (tab: PresentationTab) => {
+    setPresentationTab(tab);
+    setShowPresentationModal(true);
+  };
+
   const handleConnectVault = () => {
     setShowVaultModal(false);
+    setShowPresentationModal(false);
     setIsWarping(true);
   };
 
@@ -82,26 +91,26 @@ export default function HomePage() {
             </Link>
           </div>
 
-          {/* Minimalist Navigation Links */}
-          <nav className="hidden md:flex items-center gap-8 text-sm">
-            <a
-              href="#"
-              className="text-[#94A3B8] hover:text-white transition-colors"
+          {/* Minimalist Navigation Links with Direct Page Routing */}
+          <nav className="flex items-center gap-4 sm:gap-8 text-xs sm:text-sm">
+            <Link
+              href="/analytics"
+              className="text-[#94A3B8] hover:text-white transition-colors cursor-pointer py-1"
             >
               Analytics
-            </a>
-            <a
-              href="#"
-              className="text-[#94A3B8] hover:text-white transition-colors"
+            </Link>
+            <Link
+              href="/intelligence"
+              className="text-[#94A3B8] hover:text-white transition-colors cursor-pointer py-1"
             >
               Intelligence
-            </a>
-            <a
-              href="#"
-              className="text-[#94A3B8] hover:text-white transition-colors"
+            </Link>
+            <Link
+              href="/architecture"
+              className="text-[#94A3B8] hover:text-white transition-colors cursor-pointer py-1"
             >
               Architecture
-            </a>
+            </Link>
           </nav>
 
           {/* Action CTA with Liquid Metal Design */}
@@ -144,11 +153,14 @@ export default function HomePage() {
           and instant Razorpay settlement.
         </p>
 
-        {/* Scroll Indicator */}
-        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 font-mono text-[10px] tracking-widest text-[#94A3B8] uppercase">
-          <span>SCROLL TO EXPLORE ARCHITECTURE</span>
+        {/* Scroll Indicator with Click Trigger to /architecture */}
+        <Link
+          href="/architecture"
+          className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 font-mono text-[10px] tracking-widest text-[#94A3B8] hover:text-white uppercase pointer-events-auto cursor-pointer transition group"
+        >
+          <span className="group-hover:text-[#3395FF] transition">CLICK OR SCROLL TO EXPLORE ARCHITECTURE</span>
           <div className="w-[1px] h-8 bg-gradient-to-b from-[#3395FF] to-transparent animate-pulse" />
-        </div>
+        </Link>
       </div>
 
       {/* ========================================================================= */}
@@ -259,6 +271,16 @@ export default function HomePage() {
           </div>
         </div>
       )}
+
+      {/* ========================================================================= */}
+      {/* EXECUTIVE PRESENTATION SUITE (ANALYTICS, INTELLIGENCE, ARCHITECTURE)     */}
+      {/* ========================================================================= */}
+      <PresentationModal
+        isOpen={showPresentationModal}
+        initialTab={presentationTab}
+        onClose={() => setShowPresentationModal(false)}
+        onLaunchDemo={handleConnectVault}
+      />
     </div>
   );
 }

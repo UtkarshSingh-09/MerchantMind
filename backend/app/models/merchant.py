@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import String, Boolean, DateTime, func
+from sqlalchemy import String, Boolean, DateTime, Float, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -32,6 +32,9 @@ class Merchant(Base):
     store_latitude: Mapped[float | None] = mapped_column(nullable=True)
     store_longitude: Mapped[float | None] = mapped_column(nullable=True)
     store_address: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    neighborhood: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    cuisine_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    avg_rating: Mapped[float | None] = mapped_column(Float, default=4.5, nullable=True)
 
     # Authentication & Security
     api_key_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)

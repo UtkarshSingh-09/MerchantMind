@@ -29,8 +29,9 @@ async def test_demo_customer_endpoint_returns_memory_profile(client: AsyncClient
     assert data["saved_addresses"][0]["label"] == "Home"
     assert "formatted_memory" in data
     assert "Indiranagar" in data["formatted_memory"]
-    assert "Vegetarian" in data["formatted_memory"]
+    assert "Medium" in data["formatted_memory"]
     assert "Beijing Bites" in data["formatted_memory"]
+
 
 
 @pytest.mark.asyncio

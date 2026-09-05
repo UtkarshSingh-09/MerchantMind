@@ -1,3 +1,5 @@
+
+
 """Shopping Agent — Autonomous Single-Store Catalog Shopping, Smart Upselling & Razorpay Payments.
 Manages customer carts, enforces budget guardrails with active alternatives, and completes Razorpay checkouts.
 Supports real-time ReAct streaming of agent thinking, tool executions, and observations.
@@ -8,6 +10,7 @@ import json
 import logging
 import uuid
 from typing import Any, AsyncGenerator
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 STOPWORDS = {
@@ -18,9 +21,19 @@ STOPWORDS = {
 }
 
 
+SYNONYMS = {
+    "belgium": "belgian",
+    "choc": "chocolate",
+    "veggie": "veg",
+    "pastries": "pastry",
+    "manchurian": "manchurian",
+    "truffles": "truffle",
+}
+
+
 def extract_search_keywords(text: str) -> str:
     cleaned = re.sub(r"[^\w\s]", " ", text.lower())
-    words = [w for w in cleaned.split() if w not in STOPWORDS and not w.isdigit()]
+    words = [SYNONYMS.get(w, w) for w in cleaned.split() if w not in STOPWORDS and not w.isdigit()]
     return " ".join(words).strip()
 
 from app.models.merchant import Merchant
@@ -43,7 +56,9 @@ from app.services.memory_service import build_optimized_context, build_customer_
 from app.services.entity_resolver import entity_resolver
 from app.services.inventory_sync_service import inventory_sync_service
 from app.services import order_service
+from app.services import coupon_service
 from app.schemas.chat import ProductRecommendation, CartItem, ChatResponse
+from app.agents.discovery_agent import sanitize_english_response
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +110,22 @@ SHOPPING_TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "update_cart_quantity",
+            "description": "Directly update the quantity of an item already in the cart (e.g. 'make it 3 dosas', 'change quantity to 2'). If quantity is set to 0, the item is removed.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "product_name": {"type": "string", "description": "Name or keyword of product in cart"},
+                    "product_id": {"type": "string", "description": "UUID of product in cart if known"},
+                    "new_quantity": {"type": "integer", "description": "New desired quantity (0 to remove)"},
+                },
+                "required": ["new_quantity"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "remove_from_cart",
             "description": "Remove an item from customer's shopping cart.",
             "parameters": {
@@ -102,6 +133,39 @@ SHOPPING_TOOLS = [
                 "properties": {
                     "product_id": {"type": "string", "description": "UUID of product to remove"},
                     "product_name": {"type": "string", "description": "Name of product to remove"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "apply_coupon",
+            "description": "Apply a promotional coupon code (e.g. WELCOME10, FLAT50, SWEET20) to the customer's cart to receive a discount.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "coupon_code": {
+                        "type": "string",
+                        "description": "The coupon or promo code to apply",
+                    },
+                },
+                "required": ["coupon_code"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_estimated_delivery_time",
+            "description": "Check the estimated preparation time and delivery arrival window for the current cart from this merchant.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "delivery_address": {
+                        "type": "string",
+                        "description": "Optional customer delivery address or neighborhood in Bangalore",
+                    },
                 },
             },
         },
@@ -132,7 +196,7 @@ SHOPPING_TOOLS = [
         "type": "function",
         "function": {
             "name": "checkout_and_pay",
-            "description": "Create a Razorpay order and generate a secure test payment link.",
+            "description": "Create a Razorpay order and generate a secure payment link. ONLY call this after confirming fulfillment mode (pickup or delivery) and address with the customer.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -143,11 +207,30 @@ SHOPPING_TOOLS = [
                         "enum": ["delivery", "pickup"],
                         "description": "Fulfillment preference: 'delivery' for doorstep or 'pickup' for store counter",
                     },
+                    "delivery_address": {
+                        "type": "string",
+                        "description": "Complete delivery address including street, area, and 6-digit Bangalore pincode (e.g. 560038)",
+                    },
+                },
+                "required": ["fulfillment_mode"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "track_order",
+            "description": "View live tracking status, fulfillment details, and get the live tracking page link for the customer's order.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "order_id": {"type": "string", "description": "Specific order ID if mentioned"}
                 },
             },
         },
     },
 ]
+
 
 
 def _build_shopping_prompt(
@@ -156,6 +239,7 @@ def _build_shopping_prompt(
     current_cart: dict[str, Any],
     handoff_context: dict[str, Any] | None = None,
     customer_memory: str = "",
+    active_order: Any | None = None,
 ) -> str:
     cart_items = current_cart.get("items", [])
     cart_total = current_cart.get("total", 0.0)
@@ -192,12 +276,33 @@ Seamlessly fulfill the customer's goal without asking them to repeat themselves!
 
     memory_section = f"\n\n{customer_memory}\n" if customer_memory else ""
 
+    active_order_section = ""
+    if active_order:
+        status_val = str(getattr(active_order, "status", "PAYMENT_LINK_SENT")).upper()
+        is_paid = "PAID" in status_val or "CONFIRMED" in status_val
+        active_order_section = f"""
+ACTIVE ORDER STATUS & GROUND TRUTH:
+- Order ID: {active_order.id}
+- Order Total: ₹{active_order.total:.0f}
+- Fulfillment: {active_order.fulfillment_mode}
+- Payment Status: {'PAID & CONFIRMED' if is_paid else 'PAYMENT PENDING (NOT PAID YET)'}
+- Secure Razorpay Link: {active_order.payment_link or 'N/A'}
+- Live Tracking URL: /orders/{active_order.id}/tracking
+"""
+
     return f"""You are ShoppingAgent in MerchantMind — the AI Shopping Concierge for '{merchant.name}'.
 About the store: {merchant.description or 'Artisan & Specialty Store'}.
 Store Location: {merchant.store_address or 'Bangalore, India'}
 Currency: INR (₹).
+
+CRITICAL LANGUAGE REQUIREMENT (STRICTLY MANDATORY):
+- ALWAYS SPEAK AND RESPOND EXCLUSIVELY IN 100% CLEAR, NATURAL, ATTENTIVE ENGLISH.
+- NEVER SPEAK IN HINDI, HINGLISH, URDU, OR CASUAL REGIONAL SLANG (NEVER use words like "Bhai", "yaar", "toh", "main", "seedha", "yeh lo", "chahiye", "accha", etc.).
+- Keep all recommendations, checkout summaries, and greetings strictly in polished English.
+- Failure to speak in pure English is strictly prohibited.
 {memory_section}
 {handoff_text}
+{active_order_section}
 CATALOG OVERVIEW:
 {catalog_text}
 
@@ -211,9 +316,96 @@ RESPONSIBILITIES:
 2. **Handle Out of Stock Gracefully**: If an item is out of stock, politely introduce the closest in-stock alternatives.
 3. **Smart Upselling**: When items are added, call `get_upsell_suggestions` for natural pairings (e.g. candles for birthday cake, beverages for pastries).
 4. **Hard Budget Guardrails**: NEVER exceed a customer's strict budget limit. If `add_to_cart` returns a budget guardrail block, politely explain the budget limit and suggest the returned within-budget alternatives.
-5. **Checkout**: When customer wants to buy/pay, call `checkout_and_pay` to generate Razorpay link.
-6. **Tone**: Warm, enthusiastic, concise, and helpful.
+5. **Conversational Checkout Workflow (MANDATORY)**:
+When customer wants to checkout, buy, or pay (e.g. "checkout", "check out this", "pay", "order now", "buy this"):
+DO NOT immediately call `checkout_and_pay` unless fulfillment mode and address are already confirmed! Follow this state machine:
+
+- **STEP 1 (Fulfillment Choice)**:
+  If the customer has NOT stated whether they want store pickup or doorstep delivery:
+  Ask: "Would you like store pickup or doorstep delivery?"
+  Include interactive options on their own line:
+  [🛍️ Store Pickup] [🚚 Doorstep Delivery]
+
+- **STEP 2A (If Customer Chooses Store Pickup)**:
+  If customer chooses pickup (or says "pickup", "store pickup"):
+  Immediately call `checkout_and_pay(fulfillment_mode="pickup")`.
+  Confirm with:
+  "Your pickup order is ready! 🛍️
+  • Item: {cart_summary_str} — {merchant.name}
+  • Total: ₹[amount]
+  • Pickup: Store counter
+  Please tap the payment button below to complete your order."
+
+- **STEP 2B (If Customer Chooses Doorstep Delivery)**:
+  If customer chooses delivery (or says "delivery", "doorstep"):
+  Check if customer has a saved address in memory/profile (e.g. "Flat 402, 100 Feet Road, Indiranagar, Bangalore - 560038"):
+  - If a saved address exists:
+    Ask: "Would you like this delivered to your saved address at Flat 402, 100 Feet Road, Indiranagar, Bangalore - 560038, or a new address?"
+    Include interactive options on their own line:
+    [📍 Use Saved Address] [✏️ Enter New Address]
+    - If customer confirms saved address (says "saved address", "same address", "yes", "indiranagar"):
+      Call `checkout_and_pay(fulfillment_mode="delivery", delivery_address="Flat 402, 100 Feet Road, Indiranagar, Bangalore - 560038")`.
+    - If customer says "new address" or wants to change:
+      Ask: "Please share your delivery address."
+  - If no saved address exists:
+    Ask: "Please share your delivery address."
+
+- **STEP 3 (Address & 6-Digit Pincode Validation for Delivery)**:
+  When customer provides an address:
+  Verify if it includes street/area and a 6-digit Bangalore pincode (e.g. 560xxx).
+  - If pincode or area is missing (e.g. customer only says "MG Road" or "Flat 102"):
+    Ask: "Got your address! Could you also provide your 6-digit Bangalore pincode and area for smooth delivery?"
+  - Once full address with 6-digit pincode is provided:
+    Call `checkout_and_pay(fulfillment_mode="delivery", delivery_address=full_address)`.
+
+6. **STRICT SINGLE-STORE BOUNDARY & MISSING ITEM POLICY (MANDATORY)**:
+- You represent ONLY '{merchant.name}'. You can ONLY add items that exist in '{merchant.name}'!
+- When the customer asks to add an item (e.g. "also add one filter coffee", "add cold brew", "add samosa"):
+  - Check if '{merchant.name}' has this item in its catalog.
+  - If yes: Call `add_to_cart` and add it from '{merchant.name}'.
+  - If '{merchant.name}' DOES NOT have this item:
+    Politely and clearly explain:
+    "We don't have [item] at {merchant.name}. On our menu, we have delicious options like [alternative 1] (₹XX) and [alternative 2] (₹XX)! Would you like to add one of these instead, or proceed with your current cart?"
+  - NEVER add an item from another restaurant or pretend to have an item that is not in '{merchant.name}' catalog!
+
+7. **STRICT PAYMENT INTEGRITY (NEVER HALLUCINATE PAYMENT CONFIRMATION)**:
+- You are STRICTLY FORBIDDEN from declaring a payment successful or claiming money was received (e.g. "Your payment of ₹170 has been processed successfully! ✅") based solely on a user's text message (such as "pay now", "I paid", "make payment for me", "💳 Pay ₹170 Now", etc.).
+- Customers must complete their payment on the secure Razorpay payment page.
+- If the customer asks "can you make payment for me", "how to pay", "where to pay", or sends a pay request:
+  Direct them to click their secure payment link:
+  "Please complete your payment directly via Razorpay: [💳 Pay via Razorpay Secure]({getattr(active_order, 'payment_link', '') if active_order else ''})
+  Once completed on Razorpay, your order will automatically be confirmed with your official receipt and live tracking!"
+- NEVER invent fake pickup codes (e.g. AZZ-4821) or fake confirmation messages!
+
+7. **LIVE ORDER TRACKING & ARRIVAL ALARM**:
+- If customer asks to go to the tracking page or track their order (e.g. "go to tracking page", "can you go to the tracking page", "take me to tracking", "track my order", "show tracking", "track order"):
+  Say warmly and concisely: "Okay! Taking you to your live tracking page now... 🚀\n\n[🚚 View Live Order Tracking]({f'/orders/{active_order.id}/tracking' if active_order else '#'})" so the frontend can redirect immediately.
+- If customer asks to set an alarm when the order arrives or wake them up on delivery (e.g. "set an alarm when the order comes", "set alarm", "wake me when food arrives", "alert me on arrival"):
+  Confirm warmly that their arrival alarm is armed! Provide the direct tracking link with the alarm parameter:
+  "I have armed your arrival alarm! A loud chime will automatically ring the moment your delivery arrives: [🔔 Open Live Tracking & Armed Alarm]({f'/orders/{active_order.id}/tracking?alarm=true' if active_order else '#'})"
+
+8. **Tone**: Warm, enthusiastic, concise, and helpful.
 """
+
+
+def _format_cart_items_for_response(items: list[dict[str, Any]]) -> list[CartItem]:
+    out: list[CartItem] = []
+    for i in items:
+        pid = i.get("product_id") or i.get("id")
+        try:
+            p_uuid = uuid.UUID(str(pid)) if pid else uuid.uuid4()
+        except Exception:
+            p_uuid = uuid.uuid4()
+        p_price = float(i.get("price") or i.get("unit_price") or 0.0)
+        out.append(
+            CartItem(
+                product_id=p_uuid,
+                name=str(i.get("name", "Product")),
+                price=p_price,
+                quantity=int(i.get("quantity", 1)),
+            )
+        )
+    return out
 
 
 class ShoppingAgent:
@@ -405,8 +597,12 @@ class ShoppingAgent:
                             "quantity": qty,
                             "image_url": product.image_url,
                             "category": product.category,
+                            "merchant_id": str(merchant.id),
+                            "merchant_name": merchant.name,
                         })
                     cart["items"] = items
+                    cart["merchant_id"] = str(merchant.id)
+                    cart["merchant_name"] = merchant.name
                     update_conversation_cart(conversation, cart)
                     cart = conversation.cart
 
@@ -416,12 +612,13 @@ class ShoppingAgent:
                         "quantity": qty,
                         "cart_total": cart["total"],
                         "cart_items": cart["items"],
+                        "store_name": merchant.name,
                         "budget_remaining": (budget_cap - cart["total"]) if budget_cap else None,
                     }
                     add_agent_reasoning(
                         conversation,
                         action="add_to_cart",
-                        reasoning=f"Added {qty}x {product.name} (₹{product.price:.0f}) to cart. Total: ₹{cart['total']:.0f}" + (f" (Remaining budget: ₹{budget_cap - cart['total']:.0f})" if budget_cap else ""),
+                        reasoning=f"Added {qty}x {product.name} (₹{product.price:.0f}) from {merchant.name} to cart. Total: ₹{cart['total']:.0f}" + (f" (Remaining budget: ₹{budget_cap - cart['total']:.0f})" if budget_cap else ""),
                     )
                     await log_audit_event(
                         db=db,
@@ -436,7 +633,114 @@ class ShoppingAgent:
             else:
                 tool_result = {"success": False, "error": f"Product '{pname or pid}' not found."}
 
+        elif fn_name == "update_cart_quantity":
+            action_type = "cart_update"
+            pid = fn_args.get("product_id")
+            pname = fn_args.get("product_name")
+            new_qty = int(fn_args.get("new_quantity", 1))
+            items = list(cart.get("items", []))
+
+            target_idx = None
+            for idx, it in enumerate(items):
+                if pid and str(it.get("product_id")) == str(pid):
+                    target_idx = idx
+                    break
+                elif pname and pname.lower() in it.get("name", "").lower():
+                    target_idx = idx
+                    break
+
+            if target_idx is None:
+                tool_result = {"success": False, "error": f"Item '{pname or pid}' was not found in your cart to update."}
+            elif new_qty <= 0:
+                removed_name = items[target_idx].get("name", "Item")
+                items.pop(target_idx)
+                cart["items"] = items
+                update_conversation_cart(conversation, cart)
+                cart = conversation.cart
+                tool_result = {
+                    "success": True,
+                    "action": "removed",
+                    "product_name": removed_name,
+                    "cart_total": cart["total"],
+                    "cart_items": cart["items"],
+                    "message": f"Removed {removed_name} from your cart. New cart total: ₹{cart['total']:.0f}",
+                }
+                add_agent_reasoning(
+                    conversation,
+                    action="update_cart_quantity",
+                    reasoning=f"Quantity set to 0. Removed {removed_name} from cart. Total: ₹{cart['total']:.0f}",
+                )
+            else:
+                item = items[target_idx]
+                old_qty = item.get("quantity", 1)
+                unit_price = float(item.get("price", 0.0))
+                current_total = float(cart.get("total", 0.0))
+                cost_delta = (new_qty - old_qty) * unit_price
+                projected_total = current_total + cost_delta
+
+                budget_cfg = cart.get("budget") or {}
+                budget_cap = budget_cfg.get("budget_amount")
+                is_hard = budget_cfg.get("is_hard_limit", False)
+
+                if is_hard and budget_cap and projected_total > budget_cap:
+                    tool_result = {
+                        "success": False,
+                        "budget_blocked": True,
+                        "message": f"Updating {item.get('name')} to {new_qty} brings total to ₹{projected_total:.0f}, exceeding your budget of ₹{budget_cap:.0f}.",
+                    }
+                else:
+                    item["quantity"] = new_qty
+                    cart["items"] = items
+                    update_conversation_cart(conversation, cart)
+                    cart = conversation.cart
+                    tool_result = {
+                        "success": True,
+                        "action": "quantity_updated",
+                        "product_name": item.get("name"),
+                        "old_quantity": old_qty,
+                        "new_quantity": new_qty,
+                        "cart_total": cart["total"],
+                        "cart_items": cart["items"],
+                        "message": f"Updated '{item.get('name')}' quantity to {new_qty}. New cart total: ₹{cart['total']:.0f}",
+                    }
+                    add_agent_reasoning(
+                        conversation,
+                        action="update_cart_quantity",
+                        reasoning=f"Updated {item.get('name')} from {old_qty} to {new_qty}. Cart total is now ₹{cart['total']:.0f}",
+                    )
+
+        elif fn_name == "apply_coupon":
+            action_type = "cart_update"
+            code = fn_args.get("coupon_code", "")
+            coupon_res = coupon_service.apply_coupon_to_cart(coupon_code=code, cart=cart)
+            if coupon_res.get("success"):
+                cart = coupon_res["cart"]
+                update_conversation_cart(conversation, cart)
+                cart = conversation.cart
+                add_agent_reasoning(
+                    conversation,
+                    action="apply_coupon",
+                    reasoning=f"Applied coupon '{code.upper()}': Saved ₹{coupon_res.get('discount_amount', 0):.0f}. New total: ₹{cart['total']:.0f}",
+                )
+            tool_result = coupon_res
+
+        elif fn_name == "get_estimated_delivery_time":
+            deliv_addr = fn_args.get("delivery_address")
+            eta_info = await order_service.estimate_delivery_time(
+                db=db,
+                merchant_id=merchant.id,
+                items=cart.get("items", []),
+                delivery_address=deliv_addr,
+            )
+            tool_result = eta_info
+            add_agent_reasoning(
+                conversation,
+                action="estimated_delivery_time",
+                reasoning=f"Calculated delivery ETA for {merchant.name}: {eta_info.get('delivery_window')} (Total ~{eta_info.get('total_estimated_minutes')} mins)",
+            )
+
         elif fn_name == "remove_from_cart":
+
             action_type = "cart_update"
             pid = fn_args.get("product_id")
             pname = fn_args.get("product_name")
@@ -448,10 +752,13 @@ class ShoppingAgent:
             elif pname:
                 items = [i for i in items if pname.lower() not in i.get("name", "").lower()]
 
-            cart["items"] = items
-            update_conversation_cart(conversation, cart)
-            cart = conversation.cart
-            tool_result = {"success": len(items) < initial_len, "cart_total": cart["total"]}
+            if len(items) < initial_len:
+                cart["items"] = items
+                update_conversation_cart(conversation, cart)
+                cart = conversation.cart
+                tool_result = {"success": True, "removed": pname or pid, "cart_total": cart["total"]}
+            else:
+                tool_result = {"success": False, "error": f"Item '{pname or pid}' not found in cart."}
 
         elif fn_name == "view_cart":
             tool_result = cart
@@ -459,15 +766,20 @@ class ShoppingAgent:
         elif fn_name == "clear_cart":
             action_type = "cart_update"
             cart["items"] = []
+            cart["total"] = 0.0
+            cart["merchant_id"] = None
+            cart["merchant_name"] = None
+            conversation.merchant_id = None
             update_conversation_cart(conversation, cart)
             cart = conversation.cart
-            tool_result = {"success": True, "message": "Cart cleared"}
+            tool_result = {"success": True, "message": "Cart cleared and store unlinked. Customer can choose any store across Bangalore."}
 
         elif fn_name == "checkout_and_pay":
             action_type = "checkout"
             cname = fn_args.get("customer_name")
             cphone = fn_args.get("customer_phone")
             f_mode = fn_args.get("fulfillment_mode", "delivery")
+            deliv_addr = fn_args.get("delivery_address")
 
             try:
                 order = await order_service.create_order(
@@ -477,8 +789,14 @@ class ShoppingAgent:
                     customer_name=cname,
                     customer_phone=cphone,
                     fulfillment_mode=f_mode,
+                    delivery_address=deliv_addr,
                 )
                 payment_link = order.payment_link
+                # Reset conversation cart upon order creation
+                cart["items"] = []
+                cart["total"] = 0.0
+                update_conversation_cart(conversation, cart)
+
                 tool_result = {
                     "success": True,
                     "order_id": str(order.id),
@@ -498,6 +816,61 @@ class ShoppingAgent:
             except Exception as e:
                 logger.error("Checkout execution error: %s", e)
                 tool_result = {"success": False, "error": str(e)}
+
+        elif fn_name == "track_order":
+            action_type = "tracking"
+            order_id_arg = fn_args.get("order_id")
+            from app.models.order import Order
+            from sqlalchemy import select
+
+            target_order = None
+            if order_id_arg:
+                try:
+                    target_order = await db.get(Order, uuid.UUID(str(order_id_arg)))
+                except Exception:
+                    pass
+
+            if not target_order:
+                res = await db.execute(
+                    select(Order)
+                    .where(Order.conversation_id == conversation.id)
+                    .order_by(Order.created_at.desc())
+                    .limit(1)
+                )
+                target_order = res.scalar_one_or_none()
+
+            if not target_order and conversation.customer_id:
+                res = await db.execute(
+                    select(Order)
+                    .where(Order.customer_id == conversation.customer_id)
+                    .order_by(Order.created_at.desc())
+                    .limit(1)
+                )
+                target_order = res.scalar_one_or_none()
+
+            if target_order:
+                status_str = target_order.status.value if hasattr(target_order.status, "value") else str(target_order.status)
+                tool_result = {
+                    "success": True,
+                    "order_id": str(target_order.id),
+                    "status": status_str,
+                    "fulfillment_mode": target_order.fulfillment_mode,
+                    "total": target_order.total,
+                    "tracking_url": f"/orders/{target_order.id}/tracking",
+                    "store_name": merchant.name,
+                    "instruction": f"Order #{str(target_order.id)[:8]} retrieved! Say: 'Okay! Taking you to your live tracking page now... 🚀\n\n[🚚 Open Live Order Tracking](/orders/{target_order.id}/tracking)' so the user is immediately redirected.",
+                }
+                add_agent_reasoning(
+                    conversation,
+                    action="track_order",
+                    reasoning=f"Retrieved live tracking for Order #{str(target_order.id)[:8]}. Tracking link: /orders/{target_order.id}/tracking",
+                )
+            else:
+                tool_result = {
+                    "success": False,
+                    "error": "No active order found for this session.",
+                    "instruction": "Explain that no order was found yet, and invite the customer to order first.",
+                }
 
         return tool_result, action_type, payment_link, cart
 
@@ -553,10 +926,13 @@ class ShoppingAgent:
                 clarification_text = " ".join(resolved_edit["clarifications"])
                 add_message_to_conversation(conversation, role="assistant", content=clarification_text)
                 return ChatResponse(
-                    message=clarification_text,
-                    cart=cart,
-                    action_type="chat",
+                    conversation_id=conversation.id,
+                    merchant_id=merchant.id,
                     merchant_name=merchant.name,
+                    message=clarification_text,
+                    cart=_format_cart_items_for_response(cart.get("items", [])),
+                    cart_total=float(cart.get("total", 0.0)),
+                    action="chat",
                 )
 
             if resolved_edit.get("actions"):
@@ -567,6 +943,32 @@ class ShoppingAgent:
                         cart["items"] = cart_items
                         cart["total"] = sum(float(i.get("unit_price", 0)) * int(i.get("quantity", 1)) for i in cart_items)
                         summary_ops.append(f"• Removed **{op['name']}** from cart")
+                    elif op["action"] == "clear":
+                        cart["items"] = []
+                        cart["total"] = 0.0
+                        cart["merchant_id"] = None
+                        cart["merchant_name"] = None
+                        conversation.merchant_id = None
+                        summary_ops.append("• Cleared all items from cart")
+                    elif op["action"] == "update_qty":
+                        existing = next((i for i in cart.get("items", []) if str(i.get("product_id")) == str(op["product_id"])), None)
+                        if existing:
+                            old_q = existing.get("quantity", 1)
+                            new_q = int(op["quantity"])
+                            existing["quantity"] = new_q
+                            u_pr = float(existing.get("unit_price") or existing.get("price", 0))
+                            summary_ops.append(f"• Updated **{op['name']}** quantity from {old_q} to **{new_q}** (₹{u_pr * new_q:.0f})")
+                        else:
+                            cart.setdefault("items", []).append({
+                                "product_id": str(op["product_id"]),
+                                "name": op["name"],
+                                "unit_price": op["unit_price"],
+                                "price": op["unit_price"],
+                                "quantity": op["quantity"],
+                                "merchant_id": str(merchant.id),
+                                "merchant_name": merchant.name,
+                            })
+                            summary_ops.append(f"• Added **{op['quantity']}x {op['name']}** (₹{op['unit_price'] * op['quantity']:.0f})")
                     elif op["action"] == "add":
                         existing = next((i for i in cart.get("items", []) if str(i.get("product_id")) == str(op["product_id"])), None)
                         if existing:
@@ -576,10 +978,16 @@ class ShoppingAgent:
                                 "product_id": str(op["product_id"]),
                                 "name": op["name"],
                                 "unit_price": op["unit_price"],
+                                "price": op["unit_price"],
                                 "quantity": op["quantity"],
+                                "merchant_id": str(merchant.id),
+                                "merchant_name": merchant.name,
                             })
-                        cart["total"] = sum(float(i.get("unit_price", 0)) * int(i.get("quantity", 1)) for i in cart["items"])
                         summary_ops.append(f"• Added **{op['quantity']}x {op['name']}** (₹{op['unit_price'] * op['quantity']:.0f})")
+
+                cart["merchant_id"] = str(merchant.id)
+                cart["merchant_name"] = merchant.name
+                cart["total"] = sum(float(i.get("unit_price") or i.get("price", 0)) * int(i.get("quantity", 1)) for i in cart.get("items", []))
 
                 update_conversation_cart(conversation, cart)
                 add_agent_reasoning(
@@ -587,14 +995,27 @@ class ShoppingAgent:
                     action="entity_resolution",
                     reasoning=f"Deterministically executed compound cart update: {', '.join(summary_ops)}",
                 )
-                final_msg = f"I've updated your order at **{merchant.name}**:\n" + "\n".join(summary_ops) + f"\n\n🛒 **Cart Total: ₹{cart.get('total', 0):.0f}**\nWould you like to add anything else or proceed to checkout?"
+                ops_text = "\n".join(summary_ops) if summary_ops else f"• Verified items in your cart"
+                final_msg = f"I've updated your order at **{merchant.name}**:\n{ops_text}\n\n🛒 **Cart Total: ₹{cart.get('total', 0):.0f}**\nWould you like to add anything else or proceed to checkout?"
                 add_message_to_conversation(conversation, role="assistant", content=final_msg)
                 return ChatResponse(
-                    message=final_msg,
-                    cart=cart,
-                    action_type="cart_update",
+                    conversation_id=conversation.id,
+                    merchant_id=merchant.id,
                     merchant_name=merchant.name,
+                    message=final_msg,
+                    cart=_format_cart_items_for_response(cart.get("items", [])),
+                    cart_total=float(cart.get("total", 0.0)),
+                    action="cart_update",
                 )
+
+        # Query active order for this conversation if any
+        from app.models.order import Order
+        active_order_res = await db.execute(
+            select(Order)
+            .where(Order.conversation_id == conversation.id)
+            .order_by(Order.created_at.desc())
+        )
+        active_order = active_order_res.scalar_one_or_none()
 
         catalog_summary = await get_merchant_catalog_summary(db, merchant.id, limit=30)
         customer_mem = await build_customer_profile_memory(conversation.customer_id, db)
@@ -604,7 +1025,51 @@ class ShoppingAgent:
             current_cart=cart,
             handoff_context=conversation.handoff_context,
             customer_memory=customer_mem,
+            active_order=active_order,
         )
+
+        # Autonomous Razorpay Payment Fast-Path for Active Orders
+        u_clean = (user_message or "").lower().strip()
+        is_pay_intent = any(k in u_clean for k in [
+            "payment", "pay", "checkout", "to a payment", "do a payment", "do payment",
+            "pay for me", "make payment", "proceed to pay", "open razorpay", "open payment"
+        ])
+        if (
+            is_pay_intent
+            and active_order
+            and active_order.payment_link
+            and "PAID" not in str(getattr(active_order, "status", "")).upper()
+            and "CANCELLED" not in str(getattr(active_order, "status", "")).upper()
+        ):
+            order_total_val = float(getattr(active_order, "total", 0.0))
+            order_id_str = str(active_order.id)
+            pay_msg = (
+                f"Opening secure Razorpay Checkout for your order (₹{order_total_val:.0f}) now! 💳\n\n"
+                f"Please complete your payment on the secure Razorpay screen: [💳 Pay ₹{order_total_val:.0f} via Razorpay Secure]({active_order.payment_link})\n\n"
+                f"Once confirmed on Razorpay, your order will automatically confirm and dispatch!"
+            )
+            add_message_to_conversation(
+                conversation,
+                role="assistant",
+                content=pay_msg,
+                metadata={
+                    "action": "checkout",
+                    "payment_link": active_order.payment_link,
+                    "order_id": order_id_str,
+                },
+            )
+            return ChatResponse(
+                conversation_id=conversation.id,
+                order_id=order_id_str,
+                merchant_id=merchant.id,
+                merchant_name=merchant.name,
+                message=pay_msg,
+                recommendations=None,
+                cart=[],
+                cart_total=0.0,
+                action="checkout",
+                payment_link=active_order.payment_link,
+            )
 
         # Memory optimization: sliding window + summarization
         optimized_history = await build_optimized_context(conversation, max_recent=6)
@@ -616,7 +1081,11 @@ class ShoppingAgent:
 
         recommendations: list[ProductRecommendation] = []
         action_type = "chat"
-        payment_link: str | None = None
+        payment_link: str | None = (
+            active_order.payment_link
+            if active_order and "PAID" not in str(getattr(active_order, "status", "")).upper() and "CANCELLED" not in str(getattr(active_order, "status", "")).upper()
+            else None
+        )
         final_text = ""
 
         try:
@@ -682,11 +1151,24 @@ class ShoppingAgent:
                     })
 
             if not final_text:
+                try:
+                    synth_resp = await groq_client.chat_completion(
+                        messages=llm_messages,
+                        temperature=0.3,
+                        max_tokens=450,
+                    )
+                    final_text = synth_resp.choices[0].message.content or ""
+                except Exception as synth_err:
+                    logger.warning("ShoppingAgent synthesis error: %s", synth_err)
+
+            if not final_text:
                 final_text = f"I've updated your order for {merchant.name}. Ready to checkout or explore more items?"
 
         except Exception as exc:
             logger.error("ShoppingAgent error: %s", exc, exc_info=True)
             final_text = "I've processed your store request. How else can I assist with your order?"
+
+        final_text = sanitize_english_response(final_text)
 
         cart_items_list = [
             CartItem(
@@ -804,12 +1286,17 @@ class ShoppingAgent:
                     "type": "answer",
                     "agent": "ShoppingAgent",
                     "content": clarification_text,
-                    "data": {
-                        "cart": cart,
-                        "action_type": "chat",
-                        "merchant_name": merchant.name,
-                        "recommendations": [],
-                    },
+                    "chat_response": ChatResponse(
+                        conversation_id=conversation.id,
+                        merchant_id=merchant.id,
+                        merchant_name=merchant.name,
+                        message=clarification_text,
+                        recommendations=None,
+                        cart=_format_cart_items_for_response(cart.get("items", [])),
+                        cart_total=float(cart.get("total", 0.0)),
+                        action="chat",
+                        payment_link=None,
+                    ).model_dump(mode="json"),
                 }
                 return
 
@@ -824,8 +1311,34 @@ class ShoppingAgent:
                     if op["action"] == "remove":
                         cart_items = [i for i in cart.get("items", []) if str(i.get("product_id")) != str(op["product_id"])]
                         cart["items"] = cart_items
-                        cart["total"] = sum(float(i.get("unit_price", 0)) * int(i.get("quantity", 1)) for i in cart_items)
+                        cart["total"] = sum(float(i.get("unit_price") or i.get("price", 0)) * int(i.get("quantity", 1)) for i in cart_items)
                         summary_ops.append(f"• Removed **{op['name']}** from cart")
+                    elif op["action"] == "clear":
+                        cart["items"] = []
+                        cart["total"] = 0.0
+                        cart["merchant_id"] = None
+                        cart["merchant_name"] = None
+                        conversation.merchant_id = None
+                        summary_ops.append("• Cleared all items from cart")
+                    elif op["action"] == "update_qty":
+                        existing = next((i for i in cart.get("items", []) if str(i.get("product_id")) == str(op["product_id"])), None)
+                        if existing:
+                            old_q = existing.get("quantity", 1)
+                            new_q = int(op["quantity"])
+                            existing["quantity"] = new_q
+                            u_pr = float(existing.get("unit_price") or existing.get("price", 0))
+                            summary_ops.append(f"• Updated **{op['name']}** quantity from {old_q} to **{new_q}** (₹{u_pr * new_q:.0f})")
+                        else:
+                            cart.setdefault("items", []).append({
+                                "product_id": str(op["product_id"]),
+                                "name": op["name"],
+                                "unit_price": op["unit_price"],
+                                "price": op["unit_price"],
+                                "quantity": op["quantity"],
+                                "merchant_id": str(merchant.id),
+                                "merchant_name": merchant.name,
+                            })
+                            summary_ops.append(f"• Added **{op['quantity']}x {op['name']}** (₹{op['unit_price'] * op['quantity']:.0f})")
                     elif op["action"] == "add":
                         existing = next((i for i in cart.get("items", []) if str(i.get("product_id")) == str(op["product_id"])), None)
                         if existing:
@@ -835,10 +1348,16 @@ class ShoppingAgent:
                                 "product_id": str(op["product_id"]),
                                 "name": op["name"],
                                 "unit_price": op["unit_price"],
+                                "price": op["unit_price"],
                                 "quantity": op["quantity"],
+                                "merchant_id": str(merchant.id),
+                                "merchant_name": merchant.name,
                             })
-                        cart["total"] = sum(float(i.get("unit_price", 0)) * int(i.get("quantity", 1)) for i in cart["items"])
                         summary_ops.append(f"• Added **{op['quantity']}x {op['name']}** (₹{op['unit_price'] * op['quantity']:.0f})")
+
+                cart["merchant_id"] = str(merchant.id)
+                cart["merchant_name"] = merchant.name
+                cart["total"] = sum(float(i.get("unit_price") or i.get("price", 0)) * int(i.get("quantity", 1)) for i in cart.get("items", []))
 
                 update_conversation_cart(conversation, cart)
                 yield {
@@ -851,29 +1370,48 @@ class ShoppingAgent:
                     action="entity_resolution",
                     reasoning=f"Deterministically executed compound cart update: {', '.join(summary_ops)}",
                 )
-                final_msg = f"I've updated your order at **{merchant.name}**:\n" + "\n".join(summary_ops) + f"\n\n🛒 **Cart Total: ₹{cart.get('total', 0):.0f}**\nWould you like to add anything else or proceed to checkout?"
+                ops_text = "\n".join(summary_ops) if summary_ops else f"• Verified items in your cart"
+                final_msg = f"I've updated your order at **{merchant.name}**:\n{ops_text}\n\n🛒 **Cart Total: ₹{cart.get('total', 0):.0f}**\nWould you like to add anything else or proceed to checkout?"
                 add_message_to_conversation(conversation, role="assistant", content=final_msg)
                 yield {
                     "type": "answer",
                     "agent": "ShoppingAgent",
                     "content": final_msg,
-                    "data": {
-                        "cart": cart,
-                        "action_type": "cart_update",
-                        "merchant_name": merchant.name,
-                        "recommendations": [],
-                    },
+                    "chat_response": ChatResponse(
+                        conversation_id=conversation.id,
+                        merchant_id=merchant.id,
+                        merchant_name=merchant.name,
+                        message=final_msg,
+                        recommendations=None,
+                        cart=_format_cart_items_for_response(cart.get("items", [])),
+                        cart_total=float(cart.get("total", 0.0)),
+                        action="cart_update",
+                        payment_link=None,
+                    ).model_dump(mode="json"),
                 }
                 return
 
         catalog_summary = await get_merchant_catalog_summary(db, merchant.id, limit=30)
         customer_mem = await build_customer_profile_memory(conversation.customer_id, db)
+
+        # Check for active order on this conversation
+        from app.models.order import Order, OrderStatus
+        from sqlalchemy import select
+        active_order_res = await db.execute(
+            select(Order)
+            .where(Order.conversation_id == conversation.id)
+            .order_by(Order.created_at.desc())
+            .limit(1)
+        )
+        active_order = active_order_res.scalar_one_or_none()
+
         system_prompt = _build_shopping_prompt(
             merchant=merchant,
             catalog_summary=catalog_summary,
             current_cart=cart,
             handoff_context=conversation.handoff_context,
             customer_memory=customer_mem,
+            active_order=active_order,
         )
 
         optimized_history = await build_optimized_context(conversation, max_recent=6)
@@ -885,8 +1423,57 @@ class ShoppingAgent:
 
         recommendations: list[ProductRecommendation] = []
         action_type = "chat"
-        payment_link: str | None = None
+        tracked_order_id: str | None = None
+        payment_link: str | None = (
+            active_order.payment_link
+            if active_order and "PAID" not in str(getattr(active_order, "status", "")).upper() and "CANCELLED" not in str(getattr(active_order, "status", "")).upper()
+            else None
+        )
         final_text = ""
+
+        # 3.5 Autonomous Razorpay Payment Fast-Path for Active Orders
+        u_clean = (user_message or "").lower().strip()
+        is_pay_intent = any(k in u_clean for k in [
+            "payment", "pay", "checkout", "to a payment", "do a payment", "do payment",
+            "pay for me", "make payment", "proceed to pay", "open razorpay", "open payment"
+        ])
+        if is_pay_intent and active_order and payment_link:
+            order_total_val = float(getattr(active_order, "total", 0.0))
+            order_id_str = str(active_order.id)
+            pay_msg = (
+                f"Opening secure Razorpay Checkout for your order (₹{order_total_val:.0f}) now! 💳\n\n"
+                f"Please complete your payment on the secure Razorpay screen: [💳 Pay ₹{order_total_val:.0f} via Razorpay Secure]({payment_link})\n\n"
+                f"Once confirmed on Razorpay, your order will automatically confirm and dispatch!"
+            )
+            add_message_to_conversation(
+                conversation,
+                role="assistant",
+                content=pay_msg,
+                metadata={
+                    "action": "checkout",
+                    "payment_link": payment_link,
+                    "order_id": order_id_str,
+                },
+            )
+            chat_resp = ChatResponse(
+                conversation_id=conversation.id,
+                order_id=order_id_str,
+                merchant_id=merchant.id,
+                merchant_name=merchant.name,
+                message=pay_msg,
+                recommendations=None,
+                cart=[],
+                cart_total=0.0,
+                action="checkout",
+                payment_link=payment_link,
+            )
+            yield {
+                "type": "answer",
+                "agent": "ShoppingAgent",
+                "content": pay_msg,
+                "chat_response": chat_resp.model_dump(mode="json"),
+            }
+            return
 
         # 4. Speculative In-Store Catalog Fast-Path (<5ms local search)
         spec_kw = extract_search_keywords(user_message)
@@ -1021,6 +1608,8 @@ class ShoppingAgent:
                         action_type = act
                     if plink:
                         payment_link = plink
+                    if fn_name == "track_order" and t_res.get("order_id"):
+                        tracked_order_id = str(t_res.get("order_id"))
 
                     # Summarize tool observation for ReAct stream
                     summary = ""
@@ -1031,12 +1620,27 @@ class ShoppingAgent:
                             summary = f"⚠️ Budget guardrail blocked addition: total would reach ₹{t_res.get('projected_total')} > limit ₹{t_res.get('budget_limit')}"
                         else:
                             summary = f"✅ Added to cart. New Total: ₹{t_res.get('cart_total', 0)}"
+                    elif fn_name == "update_cart_quantity":
+                        if t_res.get("budget_blocked"):
+                            summary = f"⚠️ Budget guardrail blocked quantity update: limit exceeded"
+                        else:
+                            summary = f"🔄 {t_res.get('message', 'Updated quantity in cart')}"
+                    elif fn_name == "apply_coupon":
+                        if t_res.get("success"):
+                            summary = f"🎉 Applied '{t_res.get('coupon_code')}': Saved ₹{t_res.get('discount_amount', 0):.0f} (Total: ₹{t_res.get('new_total', 0):.0f})"
+                        else:
+                            summary = f"⚠️ Coupon not applied: {t_res.get('error')}"
+                    elif fn_name == "get_estimated_delivery_time":
+                        summary = f"⏱️ Delivery ETA: {t_res.get('delivery_window')} (~{t_res.get('total_estimated_minutes')} mins total)"
                     elif fn_name == "get_upsell_suggestions":
                         summary = f"Found {t_res.get('suggested_count', 0)} complementary upsell pairings"
                     elif fn_name == "checkout_and_pay":
                         summary = f"💳 Generated Razorpay payment link for ₹{t_res.get('order_total', 0)}"
+                    elif fn_name == "track_order":
+                        summary = f"🚚 Retrieved live tracking for Order #{str(t_res.get('order_id', ''))[:8]}"
                     else:
                         summary = f"Completed {fn_name}"
+
 
                     yield {
                         "type": "tool_result",
@@ -1054,11 +1658,24 @@ class ShoppingAgent:
                     })
 
             if not final_text:
+                try:
+                    synth_resp = await groq_client.chat_completion(
+                        messages=llm_messages,
+                        temperature=0.3,
+                        max_tokens=450,
+                    )
+                    final_text = synth_resp.choices[0].message.content or ""
+                except Exception as synth_err:
+                    logger.warning("ShoppingAgent streaming synthesis error: %s", synth_err)
+
+            if not final_text:
                 final_text = f"I've updated your order for {merchant.name}. Ready to checkout or explore more items?"
 
         except Exception as exc:
             logger.error("ShoppingAgent streaming error: %s", exc, exc_info=True)
             final_text = "I've processed your store request. How else can I assist with your order?"
+
+        final_text = sanitize_english_response(final_text)
 
         cart_items_list = [
             CartItem(
@@ -1083,6 +1700,7 @@ class ShoppingAgent:
 
         chat_resp = ChatResponse(
             conversation_id=conversation.id,
+            order_id=str(active_order.id) if active_order else tracked_order_id,
             merchant_id=merchant.id,
             merchant_name=merchant.name,
             message=final_text,

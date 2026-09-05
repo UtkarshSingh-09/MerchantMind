@@ -11,7 +11,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import engine, Base
 from app.middleware.error_handler import ErrorHandlerMiddleware
-from app.routes import merchants, products, chat, orders, webhooks, health, campaigns, audit, merchant_chat, analytics, customers, voice
+from app.middleware.security_headers import SecurityHeadersMiddleware
+from app.middleware.payload_limit import PayloadSizeLimitMiddleware
+from app.routes import merchants, products, chat, orders, webhooks, health, campaigns, audit, merchant_chat, analytics, customers, voice, pay
 # Import all models to ensure they register on Base.metadata
 from app.models import merchant, product, customer, conversation, order, campaign, audit_log, dead_letter
 
@@ -78,12 +80,23 @@ async def lifespan(app: FastAPI):
     # Launch background reconciliation daemon
     reconcile_task = asyncio.create_task(background_reconciliation_daemon())
 
+    # Launch background Telegram polling daemon
+    telegram_task = None
+    if settings.telegram_bot_token:
+        from app.services.telegram_polling import run_telegram_polling
+        telegram_task = asyncio.create_task(run_telegram_polling())
+
     yield
 
     # Shutdown: gracefully terminate background tasks and dispose engine
     reconcile_task.cancel()
+    if telegram_task:
+        telegram_task.cancel()
     try:
-        await asyncio.wait_for(asyncio.gather(reconcile_task, return_exceptions=True), timeout=3.0)
+        tasks_to_wait = [reconcile_task]
+        if telegram_task:
+            tasks_to_wait.append(telegram_task)
+        await asyncio.wait_for(asyncio.gather(*tasks_to_wait, return_exceptions=True), timeout=3.0)
     except (asyncio.TimeoutError, Exception):
         pass
 
@@ -102,13 +115,16 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Error handling — structured JSON for unhandled exceptions
+# Security & Error Handling Middlewares (executed inside-out)
 app.add_middleware(ErrorHandlerMiddleware)
+app.add_middleware(PayloadSizeLimitMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 
-# CORS — Outermost middleware so all responses (including errors) carry CORS headers
+# CORS — Outermost middleware so all responses (including errors and security headers) carry CORS headers
+cors_allowed = settings.cors_origins if settings.cors_origins else ["http://localhost:3000", "http://127.0.0.1:3000"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins if settings.cors_origins else ["*"],
+    allow_origins=cors_allowed,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -127,4 +143,5 @@ app.include_router(audit.router, prefix="/api/audit", tags=["Audit"])
 app.include_router(customers.router, tags=["Customers"])
 app.include_router(voice.router, tags=["Voice AI"])
 app.include_router(analytics.router, prefix="/api", tags=["Analytics & Benchmarks"])
+app.include_router(pay.router, tags=["Checkout"])
 

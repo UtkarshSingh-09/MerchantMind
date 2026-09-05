@@ -7,13 +7,13 @@
 
 ## 💡 What is MerchantMind?
 
-**MerchantMind** transforms traditional e-commerce catalogs into **intelligent, agentic commerce engines**. Powered by Groq LLMs (`openai/gpt-oss-120b` and `openai/gpt-oss-20b`), Razorpay payment infrastructure, and the Meta WhatsApp Cloud API, it provides customers with a human-like shopping experience while driving revenue growth and higher Average Order Value (AOV) for merchants.
+**MerchantMind** transforms traditional e-commerce catalogs into **intelligent, agentic commerce engines**. Powered by Groq LLMs (`openai/gpt-oss-120b` and `openai/gpt-oss-20b`), Razorpay payment infrastructure, and the Telegram Bot API, it provides customers with a human-like shopping experience while driving revenue growth and higher Average Order Value (AOV) for merchants.
 
 ```
                     ┌──────────────────────────────────┐
                     │       CUSTOMER TOUCHPOINTS       │
                     │   • Web Chat UI (Next.js 16)     │
-                    │   • WhatsApp (Meta Cloud API)    │
+                    │   • Telegram Bot (Bot API)       │
                     └─────────────────┬────────────────┘
                                       │
                                       ▼
@@ -29,7 +29,7 @@
                     ┌──────────────────────────────────┐
                     │     RAZORPAY PAYMENT LIFECYCLE   │
                     │  • Order Creation API            │
-                    │  • Instant Payment Links (SMS/WA)│
+                    │  • Instant Payment Links (Inline)│
                     │  • HMAC Webhook Verification     │
                     │  • Immutable Audit Trail         │
                     └──────────────────────────────────┘
@@ -53,9 +53,9 @@
 - **Cryptographic Webhook Verification**: Validates all incoming payment events (`payment.captured`, `payment.failed`, `payment_link.paid`) using HMAC-SHA256 signatures.
 - **Real-Time Payment Polling**: Chat UI automatically detects captured payments and updates order status to `PAID`.
 
-### 4. 📱 WhatsApp Conversational Commerce
-- **Meta WhatsApp Cloud API (v21.0)**: Customers can browse, query, add items to cart, and receive instant Razorpay payment links directly in WhatsApp.
-- **24-Hour Session Persistence**: Maintains cart state and agent memory across WhatsApp messages.
+### 4. 📱 Telegram Conversational Commerce
+- **Telegram Bot API**: Customers can explore 214 stores, query dishes, add items via inline keyboard buttons, and receive instant Razorpay payment links directly in Telegram.
+- **24-Hour Session Persistence**: Maintains cart state and agent memory across Telegram chats.
 
 ### 5. 🛡️ Hard Guardrails & Full Audit Trail
 - **Budget Enforcement Guardrail**: Hard validation blocks payment link creation if `cart_total > stated_budget`, raising a `BUDGET_VIOLATION` event.
@@ -75,7 +75,7 @@
 | **Backend** | Python 3.12, FastAPI, SQLAlchemy 2.0 (Async), Pydantic v2 |
 | **AI / LLM** | Groq API (`openai/gpt-oss-120b`, fallback: `openai/gpt-oss-20b`), Function Calling |
 | **Payments** | Razorpay SDK (Orders, Payment Links, Webhooks HMAC-SHA256) |
-| **Messaging** | Meta WhatsApp Business Cloud API v21.0 |
+| **Messaging** | Telegram Bot API (Interactive Keyboards & Razorpay Pay Buttons) |
 | **Data & Cache** | PostgreSQL 16 (Relational & JSONB), Redis 7 (Sessions) |
 | **DevOps & Infra** | Docker, Docker Compose, NGINX Reverse Proxy, GitHub Actions CI/CD |
 
@@ -96,7 +96,7 @@ cp .env.example .env
 Fill in your API credentials in `.env`:
 - `GROQ_API_KEY` (from [Groq Console](https://console.groq.com/))
 - `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` (from [Razorpay Dashboard](https://dashboard.razorpay.com/))
-- `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN` (from [Meta Developers](https://developers.facebook.com/))
+- `TELEGRAM_BOT_TOKEN` (from [@BotFather](https://t.me/botfather))
 
 ### 3. Launch Services via Docker Compose
 ```bash
@@ -125,6 +125,7 @@ docker-compose exec backend python scripts/seed.py
 | `GET` | `/api/orders/{id}/status` | Poll payment confirmation status |
 | `GET` | `/api/orders/{id}/audit` | View full chronological audit trail and AI reasoning |
 | `POST` | `/api/webhooks/razorpay` | Cryptographic HMAC webhook handler for Razorpay |
+| `POST` | `/api/webhooks/telegram` | Telegram Bot update handler with inline buttons & Razorpay links |
 | `GET/POST` | `/api/webhooks/whatsapp` | Meta WhatsApp verification challenge & incoming message handler |
 | `POST` | `/api/campaigns/dispatch` | Identify dormant customers & dispatch personalized AI offers |
 | `GET` | `/api/merchants/{id}/catalog.json` | Schema.org/JSON-LD AI-readable catalog export |

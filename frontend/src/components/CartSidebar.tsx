@@ -18,7 +18,7 @@ import {
   Clock,
 } from "lucide-react";
 import Link from "next/link";
-import { CartItem } from "@/lib/api";
+import { CartItem, resolvePaymentUrl } from "@/lib/api";
 
 interface CartSidebarProps {
   cart: {
@@ -39,6 +39,7 @@ interface CartSidebarProps {
   activeOrderId?: string | null;
   activePaymentLink?: string | null;
   orderPaid?: boolean;
+  onPayClick?: (url?: string | null) => void;
 }
 
 const QUICK_ADDRESSES = [
@@ -67,6 +68,7 @@ export function CartSidebar({
   activeOrderId,
   activePaymentLink,
   orderPaid = false,
+  onPayClick,
 }: CartSidebarProps) {
   const [fulfillmentMode, setFulfillmentMode] = useState<"delivery" | "pickup">("delivery");
   const [deliveryAddress, setDeliveryAddress] = useState(QUICK_ADDRESSES[0]);
@@ -76,6 +78,20 @@ export function CartSidebar({
   const items = cart.items || [];
   const total = cart.total || 0;
   const itemCount = items.reduce((acc, i) => acc + (i.quantity || 1), 0);
+
+  const itemsByMerchant = React.useMemo(() => {
+    const map = new Map<string, CartItem[]>();
+    for (const it of items) {
+      const mName = it.merchant_name || merchantName || "Bangalore Store";
+      if (!map.has(mName)) {
+        map.set(mName, []);
+      }
+      map.get(mName)!.push(it);
+    }
+    return map;
+  }, [items, merchantName]);
+
+  const isMultiStore = itemsByMerchant.size > 1;
 
   const handleCheckoutClick = () => {
     if (!items || items.length === 0) return;
@@ -88,20 +104,20 @@ export function CartSidebar({
   };
 
   return (
-    <div className="flex h-full flex-col justify-between rounded-3xl border border-[#2A2A3E] bg-[#12121E] p-4.5 shadow-xl backdrop-blur-xl">
+    <div className="flex h-full flex-col justify-between rounded-3xl border border-white/[0.08] bg-[#0D0F18]/90 p-4.5 shadow-2xl backdrop-blur-2xl">
       {/* 1. Header & Cart Items Area */}
       <div>
-        <div className="flex items-center justify-between border-b border-[#2A2A3E] pb-3">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#7C3AED]/15 border border-[#7C3AED]/30 text-[#A78BFA]">
+        <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8.5 w-8.5 items-center justify-center rounded-xl bg-white/[0.04] border border-white/[0.08] text-zinc-200 shadow-sm">
               <ShoppingBag className="h-4 w-4" />
             </div>
             <div>
-              <h3 className="font-semibold text-xs sm:text-sm text-[#F0EEFF]">
+              <h3 className="font-semibold text-xs sm:text-sm text-zinc-100">
                 Cart
               </h3>
               <p className="text-[10px] text-zinc-400">
-                {itemCount} {itemCount === 1 ? "item" : "items"} • {merchantName}
+                {itemCount} {itemCount === 1 ? "item" : "items"} • {isMultiStore ? "Dual-Store Cart" : merchantName}
               </p>
             </div>
           </div>
@@ -109,7 +125,7 @@ export function CartSidebar({
           {items.length > 0 && onClearCart && !orderPaid && (
             <button
               onClick={onClearCart}
-              className="text-[11px] font-medium text-zinc-400 transition-colors hover:text-rose-400"
+              className="text-[11px] font-medium text-zinc-400 transition-colors hover:text-rose-400 cursor-pointer"
             >
               Clear
             </button>
@@ -155,62 +171,87 @@ export function CartSidebar({
               </p>
             </div>
           ) : (
-            items.map((item) => (
-              <div
-                key={item.product_id}
-                className="flex items-center justify-between gap-2.5 rounded-2xl border border-[#2A2A3E] bg-[#0A0A12]/60 p-2 transition-all hover:border-[#7C3AED]/30"
-              >
-                {item.image_url && (
-                  <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-[#1E1E2E]">
-                    <Image
-                      src={item.image_url}
-                      alt={item.name}
-                      fill
-                      className="object-cover"
-                      unoptimized
-                    />
-                  </div>
-                )}
-
-                <div className="min-w-0 flex-1">
-                  <h5 className="truncate text-xs font-medium text-[#F0EEFF]">
-                    {item.name}
-                  </h5>
-                  <p className="text-xs font-semibold text-[#0891B2]">
-                    ₹{(item.price * item.quantity).toFixed(0)}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-1 rounded-lg border border-[#2A2A3E] bg-[#1E1E2E] px-1 py-0.5">
-                  <button
-                    onClick={() => onUpdateQuantity(item.product_id, -1)}
-                    disabled={isLoading || isCheckingOut}
-                    className="flex h-4.5 w-4.5 items-center justify-center rounded text-zinc-400 transition hover:text-white"
-                  >
-                    <Minus className="h-2.5 w-2.5" />
-                  </button>
-                  <span className="w-3 text-center text-xs font-medium text-[#F0EEFF]">
-                    {item.quantity}
+            <>
+                <div className="flex items-center gap-1.5 rounded-xl bg-purple-500/10 border border-purple-500/20 px-2.5 py-1.5 text-[11px] font-semibold text-purple-300 mb-1">
+                  <span className="flex h-1.5 w-1.5 rounded-full bg-purple-400 animate-pulse" />
+                  <span>
+                    {itemsByMerchant.size > 2
+                      ? `Multi-Kitchen Order • ${itemsByMerchant.size} Stores (Unified Checkout)`
+                      : `Dual-Kitchen Order • ${itemsByMerchant.size} Stores (Unified Checkout)`}
                   </span>
-                  <button
-                    onClick={() => onUpdateQuantity(item.product_id, 1)}
-                    disabled={isLoading || isCheckingOut}
-                    className="flex h-4.5 w-4.5 items-center justify-center rounded text-zinc-400 transition hover:text-white"
-                  >
-                    <Plus className="h-2.5 w-2.5" />
-                  </button>
                 </div>
+              {Array.from(itemsByMerchant.entries()).map(([storeName, storeItems]) => (
+                <div key={storeName} className="space-y-1.5 mb-2.5 last:mb-0">
+                  {isMultiStore && (
+                    <div className="flex items-center justify-between px-2 py-1 rounded-lg bg-white/[0.03] border border-white/[0.06] text-[11px] font-semibold text-zinc-300">
+                      <span className="flex items-center gap-1.5 text-zinc-200 truncate">
+                        <Store className="h-3 w-3 text-purple-400 shrink-0" />
+                        <span className="truncate">{storeName}</span>
+                      </span>
+                      <span className="text-[10px] text-zinc-400 font-mono ml-2 shrink-0">
+                        ₹{storeItems.reduce((acc, it) => acc + it.price * it.quantity, 0).toFixed(0)}
+                      </span>
+                    </div>
+                  )}
+                  {storeItems.map((item) => (
+                    <div
+                      key={item.product_id}
+                      className="flex items-center justify-between gap-2.5 rounded-2xl border border-[#2A2A3E] bg-[#0A0A12]/60 p-2 transition-all hover:border-[#7C3AED]/30"
+                    >
+                      {item.image_url && (
+                        <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-[#1E1E2E]">
+                          <Image
+                            src={item.image_url}
+                            alt={item.name}
+                            fill
+                            className="object-cover"
+                            unoptimized
+                          />
+                        </div>
+                      )}
 
-                <button
-                  onClick={() => onRemoveItem(item.product_id)}
-                  disabled={isCheckingOut}
-                  className="p-1 text-zinc-500 transition hover:text-rose-400"
-                  title="Remove"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              </div>
-            ))
+                      <div className="min-w-0 flex-1">
+                        <h5 className="truncate text-xs font-medium text-[#F0EEFF]">
+                          {item.name}
+                        </h5>
+                        <p className="text-xs font-semibold text-[#0891B2]">
+                          ₹{(item.price * item.quantity).toFixed(0)}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-1 rounded-lg border border-[#2A2A3E] bg-[#1E1E2E] px-1 py-0.5">
+                        <button
+                          onClick={() => onUpdateQuantity(item.product_id, -1)}
+                          disabled={isLoading || isCheckingOut}
+                          className="flex h-4.5 w-4.5 items-center justify-center rounded text-zinc-400 transition hover:text-white"
+                        >
+                          <Minus className="h-2.5 w-2.5" />
+                        </button>
+                        <span className="w-3 text-center text-xs font-medium text-[#F0EEFF]">
+                          {item.quantity}
+                        </span>
+                        <button
+                          onClick={() => onUpdateQuantity(item.product_id, 1)}
+                          disabled={isLoading || isCheckingOut}
+                          className="flex h-4.5 w-4.5 items-center justify-center rounded text-zinc-400 transition hover:text-white"
+                        >
+                          <Plus className="h-2.5 w-2.5" />
+                        </button>
+                      </div>
+
+                      <button
+                        onClick={() => onRemoveItem(item.product_id)}
+                        disabled={isCheckingOut}
+                        className="p-1 text-zinc-500 transition hover:text-rose-400"
+                        title="Remove"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </>
           )}
         </div>
       </div>
@@ -314,50 +355,55 @@ export function CartSidebar({
         <div className="space-y-1 text-xs text-zinc-400 pt-0.5">
           <div className="flex justify-between">
             <span>Subtotal</span>
-            <span>₹{total.toFixed(0)}</span>
+            <span className="font-mono">₹{total.toFixed(0)}</span>
           </div>
-          <div className="flex justify-between border-t border-dashed border-[#2A2A3E] pt-1 text-xs sm:text-sm font-bold text-[#F0EEFF]">
+          <div className="flex justify-between border-t border-dashed border-white/[0.08] pt-1.5 text-xs sm:text-sm font-bold text-zinc-100">
             <span>Total</span>
-            <span className="text-[#0891B2]">₹{total.toFixed(0)}</span>
+            <span className="text-emerald-400 font-mono">₹{total.toFixed(0)}</span>
           </div>
         </div>
 
-        {/* Razorpay Checkout CTA */}
+        {/* Razorpay Checkout CTA (21st.dev Style) */}
         {activePaymentLink ? (
-          <a
-            href={activePaymentLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 py-2.5 text-xs font-bold text-white shadow-md transition-all hover:from-emerald-500 hover:to-teal-500 active:scale-[0.98]"
+          <button
+            type="button"
+            onClick={() => onPayClick?.(activePaymentLink)}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 py-2.5 text-xs font-bold text-white shadow-[0_0_24px_-4px_rgba(16,185,129,0.4),inset_0_1px_0_0_rgba(255,255,255,0.25)] border border-emerald-400/30 transition-all hover:brightness-110 active:scale-[0.98] cursor-pointer"
           >
             <CreditCard className="h-3.5 w-3.5" />
             <span>Complete Payment</span>
             <ArrowRight className="h-3.5 w-3.5" />
-          </a>
+          </button>
         ) : (
           <button
             onClick={handleCheckoutClick}
             disabled={items.length === 0 || isLoading || isCheckingOut || orderPaid}
-            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[#7C3AED] to-[#6D28D9] hover:from-[#6D28D9] hover:to-[#5B21B6] py-2.5 text-xs font-bold text-white shadow-md transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-800 hover:from-indigo-500 hover:to-purple-700 py-2.5 text-xs font-bold text-white shadow-[0_0_20px_-3px_rgba(99,102,241,0.35),inset_0_1px_0_0_rgba(255,255,255,0.2)] border border-indigo-400/30 transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
           >
             {isCheckingOut ? (
               <>
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                <span>Processing...</span>
+                <span>Processing Order...</span>
               </>
             ) : (
               <>
                 <CreditCard className="h-3.5 w-3.5" />
-                <span>Pay ₹{total.toFixed(0)}</span>
+                <span>
+                  {isMultiStore
+                    ? itemsByMerchant.size > 2
+                      ? `Checkout All ${itemsByMerchant.size} Orders (₹${total.toFixed(0)})`
+                      : `Checkout Both Orders (₹${total.toFixed(0)})`
+                    : `Pay ₹${total.toFixed(0)}`}
+                </span>
                 <ArrowRight className="h-3.5 w-3.5" />
               </>
             )}
           </button>
         )}
 
-        <div className="flex items-center justify-center gap-1 text-[10px] text-zinc-500">
-          <ShieldCheck className="h-2.5 w-2.5 text-[#A78BFA]" />
-          <span>Secured by Razorpay</span>
+        <div className="flex items-center justify-center gap-1.5 text-[10px] text-zinc-500">
+          <ShieldCheck className="h-3 w-3 text-emerald-500" />
+          <span>Secured by Razorpay • 256-bit Encrypted</span>
         </div>
       </div>
     </div>

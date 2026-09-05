@@ -13,6 +13,7 @@ from app.schemas.merchant import MerchantCreate, MerchantResponse, MerchantUpdat
 router = APIRouter()
 
 
+@router.post("", response_model=MerchantResponse, status_code=status.HTTP_201_CREATED, include_in_schema=False)
 @router.post("/", response_model=MerchantResponse, status_code=status.HTTP_201_CREATED)
 async def create_merchant(data: MerchantCreate, db: AsyncSession = Depends(get_db)):
     """Register a new merchant."""
@@ -38,6 +39,7 @@ async def create_merchant(data: MerchantCreate, db: AsyncSession = Depends(get_d
     return response
 
 
+@router.get("", response_model=list[MerchantResponse], include_in_schema=False)
 @router.get("/", response_model=list[MerchantResponse])
 async def list_merchants(db: AsyncSession = Depends(get_db)):
     """List all merchants."""

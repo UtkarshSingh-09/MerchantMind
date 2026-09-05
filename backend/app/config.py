@@ -35,10 +35,23 @@ class Settings(BaseSettings):
     razorpay_key_secret: str = ""
     razorpay_webhook_secret: str = ""
 
-    # WhatsApp
+    # WhatsApp (Legacy)
     whatsapp_access_token: str = ""
     whatsapp_phone_number_id: str = ""
     whatsapp_verify_token: str = ""
+
+    # Telegram Bot
+    telegram_bot_token: str = ""
+    telegram_webhook_secret: str = ""
+
+    # Public Base URL (Tunnel or Production Domain)
+    public_backend_url: str = ""
+
+    @property
+    def resolved_public_backend_url(self) -> str:
+        if self.public_backend_url and self.public_backend_url.startswith("http"):
+            return self.public_backend_url.rstrip("/")
+        return self.backend_url.rstrip("/")
 
     # CORS — stored as comma-separated string
     cors_origins_str: str = "http://localhost:3000,http://localhost:80"
@@ -52,6 +65,8 @@ class Settings(BaseSettings):
         import os
         url = self.database_url
         is_docker = os.path.exists("/.dockerenv") or os.environ.get("RUNNING_IN_DOCKER")
+        if is_docker and "@localhost:" in url:
+            return url.replace("@localhost:5432", "@postgres:5432")
         if not is_docker and "@postgres:" in url:
             return url.replace("@postgres:5432", "@localhost:5433")
         return url
@@ -61,6 +76,8 @@ class Settings(BaseSettings):
         import os
         url = self.redis_url
         is_docker = os.path.exists("/.dockerenv") or os.environ.get("RUNNING_IN_DOCKER")
+        if is_docker and "redis://localhost:" in url:
+            return url.replace("redis://localhost:6379", "redis://redis:6379")
         if not is_docker and "redis://redis:" in url:
             return url.replace("redis://redis:6379", "redis://localhost:6379")
         return url

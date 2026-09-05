@@ -83,12 +83,22 @@ class CheckoutSaga:
                 pid = uuid.UUID(str(raw_pid))
                 qty = int(item.get("quantity", 1))
 
-                # Row-level lock on Product
-                stmt_p = select(Product).where(Product.id == pid, Product.merchant_id == merchant_id).with_for_update()
+                # Row-level lock on Product (lookup by ID first to tolerate discovery mode merchant mismatches)
+                stmt_p = select(Product).where(Product.id == pid).with_for_update()
                 res_p = await db.execute(stmt_p)
                 product = res_p.scalar_one_or_none()
 
                 if product:
+                    # If product belongs to another merchant (e.g. from All Stores discovery), auto-align to product's true store
+                    if product.merchant_id != merchant_id:
+                        logger.info("Auto-aligning checkout merchant from %s to product's actual merchant %s (%s)", merchant_id, product.merchant_id, product.name)
+                        merchant_id = product.merchant_id
+                        stmt_m = select(Merchant).where(Merchant.id == merchant_id)
+                        res_m = await db.execute(stmt_m)
+                        real_merchant = res_m.scalar_one_or_none()
+                        if real_merchant:
+                            merchant = real_merchant
+
                     if not product.in_stock or (product.stock_quantity is not None and product.stock_quantity < qty):
                         avail = product.stock_quantity if product.stock_quantity is not None else 0
                         raise ValueError(
@@ -176,6 +186,12 @@ class CheckoutSaga:
             )
             rzp_payment_link_id = rzp_link.get("id")
             payment_link_url = rzp_link.get("short_url")
+
+            # Route to our hosted mobile-optimized Razorpay checkout terminal
+            # if test mode quota limit of 30 was reached (returning mock rzp.io/i/ links)
+            from app.config import settings
+            if not payment_link_url or "rzp.io/i/" in payment_link_url or "rzp.io/rzp/" not in payment_link_url:
+                payment_link_url = f"{settings.resolved_public_backend_url}/pay/{order_id}?ngrok-skip-browser-warning=1"
 
             logger.info("Checkout Saga Phase 2 SUCCESS: Razorpay link generated: %s", payment_link_url)
 

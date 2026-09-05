@@ -29,6 +29,8 @@ class Product(Base):
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     in_stock: Mapped[bool] = mapped_column(Boolean, default=True)
     stock_quantity: Mapped[int | None] = mapped_column(Integer, default=10, nullable=True)
+    rating: Mapped[float | None] = mapped_column(Float, default=4.5, nullable=True)
+    is_veg: Mapped[bool | None] = mapped_column(Boolean, default=True, nullable=True)
 
     @property
     def authoritative_price_paise(self) -> int:

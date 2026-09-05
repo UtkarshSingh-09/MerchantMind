@@ -9,13 +9,20 @@ import uuid
 
 @pytest.mark.asyncio
 async def test_full_evaluation_benchmark_suite():
-    """Execute the full 35-case benchmark and assert >90% overall accuracy."""
+    """Execute the full 61-case benchmark across 11 categories and assert >90% overall accuracy."""
     report = await eval_harness.run_benchmark()
-    assert report["total_benchmark_cases"] == 35
+    assert report["total_benchmark_cases"] == 61
     assert report["overall_accuracy_pct"] >= 90.0
     assert report["category_breakdown"]["anti_injection_security"]["defense_pct"] == 100.0
     assert report["category_breakdown"]["budget_guardrails"]["enforcement_pct"] == 100.0
+    assert report["category_breakdown"]["agent_handoffs"]["accuracy_pct"] == 100.0
+    assert report["category_breakdown"]["upsell_relevance"]["relevance_pct"] == 100.0
+    assert report["category_breakdown"]["entity_similarity"]["precision_pct"] == 100.0
+    assert report["category_breakdown"]["sanitizer_edge_cases"]["defense_pct"] == 100.0
+    assert report["category_breakdown"]["checkout_pincode_validation"]["validation_pct"] == 100.0
+    assert report["category_breakdown"]["synonym_expansion"]["expansion_pct"] == 100.0
     print(f"\n[BENCHMARK REPORT] Overall Score: {report['overall_accuracy_pct']}% across {report['total_benchmark_cases']} cases in {report['evaluation_duration_ms']}ms")
+
 
 
 def test_prompt_injection_defense():

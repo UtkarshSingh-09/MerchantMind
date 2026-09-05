@@ -11,6 +11,7 @@ from app.models.merchant import Merchant
 from app.models.customer import Customer
 from app.models.campaign import Campaign
 from app.services.groq_client import groq_client
+from app.services.telegram_service import telegram_service
 from app.services.whatsapp_service import whatsapp_service
 from app.services.razorpay_service import razorpay_service
 
@@ -72,7 +73,7 @@ async def dispatch_campaign_to_customer(
     discount_pct: int = 15,
 ) -> Campaign:
     """Create campaign record, generate personalized message, and dispatch via WhatsApp."""
-    message = await generate_personalized_reengagement(merchant, customer, discount_pct)
+    full_text = await generate_personalized_reengagement(merchant, customer, discount_pct)
 
     # Generate sample promotional Razorpay payment link for voucher/store credit
     rzp_link = None
@@ -88,12 +89,20 @@ async def dispatch_campaign_to_customer(
     except Exception as exc:
         logger.warning("Could not generate Razorpay link for campaign: %s", exc)
 
-    # Send WhatsApp text
-    full_text = message
-    if rzp_link:
-        full_text += f"\n\n🎁 Claim VIP voucher: {rzp_link}"
-
-    await whatsapp_service.send_text_message(to=customer.phone, text=full_text)
+    # Dispatch campaign message via Telegram (preferred) or WhatsApp
+    if customer.phone and customer.phone.startswith("tg_"):
+        chat_id = customer.phone.replace("tg_", "")
+        if rzp_link:
+            await telegram_service.send_payment_link_message(
+                chat_id=chat_id,
+                amount_inr=500 * (1 - discount_pct / 100),
+                payment_link=rzp_link,
+                merchant_name=merchant.name,
+            )
+        else:
+            await telegram_service.send_message(chat_id=chat_id, text=full_text)
+    else:
+        await whatsapp_service.send_text_message(to=customer.phone, text=full_text)
 
     campaign = Campaign(
         id=uuid.uuid4(),

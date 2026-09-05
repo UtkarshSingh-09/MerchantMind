@@ -12,6 +12,7 @@ class ChatRequest(BaseModel):
     customer_id: uuid.UUID | None = None
     message: str
     customer_phone: str | None = None
+    cart_items: list[dict[str, Any]] | None = None
 
 
 class ProductRecommendation(BaseModel):
@@ -21,6 +22,8 @@ class ProductRecommendation(BaseModel):
     description: str | None = None
     image_url: str | None = None
     category: str | None = None
+    merchant_name: str | None = None
+    merchant_id: uuid.UUID | None = None
     reasoning: str  # Why the agent recommended this product
 
 
@@ -29,6 +32,10 @@ class CartItem(BaseModel):
     name: str
     price: float
     quantity: int = 1
+    merchant_id: uuid.UUID | None = None
+    merchant_name: str | None = None
+
+    model_config = {"extra": "allow"}
 
 
 class CartUpdatePayload(BaseModel):
@@ -37,6 +44,7 @@ class CartUpdatePayload(BaseModel):
 
 class ChatResponse(BaseModel):
     conversation_id: uuid.UUID
+    order_id: str | None = None
     merchant_id: uuid.UUID | None = None
     merchant_name: str | None = None
     message: str

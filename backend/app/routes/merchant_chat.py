@@ -11,6 +11,7 @@ from app.database import get_db
 from app.models.merchant import Merchant
 from app.models.conversation import Conversation
 from app.agents.agent_router import agent_router
+from app.middleware.rate_limiter import rate_limit
 
 router = APIRouter()
 
@@ -29,7 +30,11 @@ class MerchantChatResponse(BaseModel):
     action_data: dict[str, Any] | None = None
 
 
-@router.post("/", response_model=MerchantChatResponse)
+@router.post(
+    "/",
+    response_model=MerchantChatResponse,
+    dependencies=[Depends(rate_limit(max_requests=40, window_seconds=60, scope="merchant_chat"))],
+)
 async def merchant_chat_endpoint(
     request: MerchantChatRequest,
     db: AsyncSession = Depends(get_db),

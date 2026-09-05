@@ -1730,8 +1730,13 @@ class DiscoveryAgent:
         # Fast-Path: Autonomous Live Order Tracking
         is_tracking_intent = any(k in clean_cmd for k in [
             "tracking page", "show me the tracking", "show tracking", "go to tracking",
-            "track order", "track my order", "order tracking", "where is my order", "live tracking", "track my food"
-        ])
+            "track order", "track my order", "order tracking", "where is my order",
+            "live tracking", "track my food", "tracking", "track", "take me to tracking",
+            "bring me to tracking", "open tracking"
+        ]) or (
+            re.search(r"\b(track|tracking)\b", clean_cmd) is not None
+            and any(w in clean_cmd for w in ["go", "open", "show", "view", "page", "my", "where", "status"])
+        )
         if is_tracking_intent:
             from app.models.order import Order
             res = await db.execute(
@@ -1745,6 +1750,29 @@ class DiscoveryAgent:
                 res = await db.execute(
                     select(Order)
                     .where(Order.customer_id == conversation.customer_id)
+                    .order_by(Order.created_at.desc())
+                    .limit(1)
+                )
+                found_order = res.scalar_one_or_none()
+            if not found_order:
+                # Extract order UUID from conversation message history
+                for m in reversed(conversation.messages or []):
+                    c = m.get("content", "")
+                    m_uuid = re.search(r"/orders/([0-9a-fA-F-]{36})/tracking", c) or re.search(r"([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})", c)
+                    if m_uuid:
+                        try:
+                            import uuid as _uuid
+                            ord_uuid = _uuid.UUID(m_uuid.group(1))
+                            res = await db.execute(select(Order).where(Order.id == ord_uuid))
+                            found_order = res.scalar_one_or_none()
+                            if found_order:
+                                break
+                        except Exception:
+                            pass
+            if not found_order:
+                # Fallback to latest Order overall in the database
+                res = await db.execute(
+                    select(Order)
                     .order_by(Order.created_at.desc())
                     .limit(1)
                 )

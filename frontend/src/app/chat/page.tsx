@@ -306,7 +306,7 @@ export default function ChatPage() {
     const currentMsgs = messagesRef.current.length > 0 ? messagesRef.current : messages;
     for (let i = currentMsgs.length - 1; i >= 0; i--) {
       const content = currentMsgs[i]?.content || "";
-      const match = content.match(/\/orders\/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\/tracking/);
+      const match = content.match(/\/orders\/([0-9a-fA-F-]{36})\/tracking/) || content.match(/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/);
       if (match) {
         return match[1];
       }
@@ -449,22 +449,29 @@ export default function ChatPage() {
           if (typeof window !== "undefined" && activeOrderId) {
             localStorage.setItem("merchantmind_active_order_id", activeOrderId);
           }
-          showToast("Payment confirmed!", "success");
+          const targetOrdId = activeOrderId;
+          showToast("Payment confirmed! Taking you to Live Tracking... 🚀", "success");
           
           if (voiceManager.isVoiceMode() || isVoiceMode) {
-            voiceManager.speak(`Payment confirmed! ${selectedMerchant?.name || "The store"} has confirmed your order. Live driver tracking is now ready.`);
+            voiceManager.speak(`Payment confirmed! ${selectedMerchant?.name || "The store"} has confirmed your order. Taking you to live order tracking now.`);
           }
 
           setMessages((prev) => [
             ...prev,
             {
               role: "assistant",
-              content: `🎉 **Payment Confirmed!** (₹${statusRes.total.toFixed(0)})\n\nPayment captured via Razorpay (\`${statusRes.rzp_payment_id || "captured"}\`). **${selectedMerchant?.name || "The merchant"}** has confirmed your order.\n\n🛵 **[Track Order Live 🚀](/orders/${activeOrderId}/tracking)**`,
+              content: `🎉 **Payment Confirmed!** (₹${statusRes.total.toFixed(0)})\n\nPayment captured via Razorpay (\`${statusRes.rzp_payment_id || "captured"}\`). **${selectedMerchant?.name || "The merchant"}** has confirmed your order.\n\n🛵 **[Track Order Live 🚀](/orders/${targetOrdId}/tracking)**`,
               timestamp: new Date().toISOString(),
             },
           ]);
           setCart({ items: [], total: 0 });
           clearInterval(interval);
+
+          setTimeout(() => {
+            if (targetOrdId) {
+              router.push(`/orders/${targetOrdId}/tracking`);
+            }
+          }, 2500);
         }
       } catch (err) {
         console.error("Polling error:", err);
@@ -598,7 +605,7 @@ export default function ChatPage() {
             localStorage.setItem("merchantmind_active_order_id", targetOrderId);
           }
           setCart({ items: [], total: 0 });
-          showToast("Payment confirmed! Order placed.", "success");
+          showToast("Payment confirmed! Taking you to Live Tracking... 🚀", "success");
 
           const confMsg = `🎉 **Payment Confirmed!** (₹${amount.toFixed(0)})\n\nPayment captured via Razorpay (\`${response.razorpay_payment_id || "captured"}\`). **${merchantTitle}** has confirmed your order.\n\n🛵 **[Track Order Live 🚀](/orders/${targetOrderId}/tracking)**`;
           setMessages((prev) => [
@@ -611,8 +618,14 @@ export default function ChatPage() {
           ]);
 
           if (voiceManager.isVoiceMode() || isVoiceMode) {
-            voiceManager.speak(`Payment confirmed via Razorpay for ₹${amount.toFixed(0)}! Your order is being prepared and live tracking is now active.`);
+            voiceManager.speak(`Payment confirmed via Razorpay for ₹${amount.toFixed(0)}! Taking you to live delivery tracking now.`);
           }
+
+          setTimeout(() => {
+            if (targetOrderId) {
+              router.push(`/orders/${targetOrderId}/tracking`);
+            }
+          }, 2500);
         } catch (verErr) {
           console.error("Payment verification error:", verErr);
           showToast("Payment verification error. Retrying...", "error");
@@ -1023,7 +1036,7 @@ export default function ChatPage() {
 
       if (
         detectedTrackingOrderId &&
-        (response.action === "tracking" || response.action === "redirect_tracking" || (userAskedTracking && response.message.includes("/tracking")))
+        (response.action === "tracking" || response.action === "redirect_tracking" || userAskedTracking || response.message.includes("/tracking"))
       ) {
         setActiveOrderId(detectedTrackingOrderId);
         activeOrderIdRef.current = detectedTrackingOrderId;

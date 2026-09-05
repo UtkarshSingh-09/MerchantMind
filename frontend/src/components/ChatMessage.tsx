@@ -247,14 +247,17 @@ export function ChatMessage({
               </motion.button>
             );
           }
-          const isTrack = linkText.toLowerCase().includes("track");
+          const isTrack = linkText.toLowerCase().includes("track") || url.includes("/tracking");
           if (isTrack) {
+            const finalUrl = (url && url !== "#")
+              ? url
+              : (activeOrderId ? `/orders/${activeOrderId}/tracking` : "/orders");
             return (
               <motion.a
                 key={i}
-                href={url}
-                target={url.startsWith("http") ? "_blank" : undefined}
-                rel={url.startsWith("http") ? "noopener noreferrer" : undefined}
+                href={finalUrl}
+                target={finalUrl.startsWith("http") ? "_blank" : undefined}
+                rel={finalUrl.startsWith("http") ? "noopener noreferrer" : undefined}
                 whileHover={{ scale: 1.02, y: -1 }}
                 whileTap={{ scale: 0.97 }}
                 transition={{ type: "spring", stiffness: 400, damping: 25 }}

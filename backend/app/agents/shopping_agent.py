@@ -379,10 +379,10 @@ DO NOT immediately call `checkout_and_pay` unless fulfillment mode and address a
 
 7. **LIVE ORDER TRACKING & ARRIVAL ALARM**:
 - If customer asks to go to the tracking page or track their order (e.g. "go to tracking page", "can you go to the tracking page", "take me to tracking", "track my order", "show tracking", "track order"):
-  Say warmly and concisely: "Okay! Taking you to your live tracking page now... 🚀\n\n[🚚 View Live Order Tracking]({f'/orders/{active_order.id}/tracking' if active_order else '#'})" so the frontend can redirect immediately.
+  Say warmly and concisely: "Okay! Taking you to your live tracking page now... 🚀\n\n[🚚 View Live Order Tracking]({f'/orders/{active_order.id}/tracking' if active_order else '/orders/tracking'})" so the frontend can redirect immediately.
 - If customer asks to set an alarm when the order arrives or wake them up on delivery (e.g. "set an alarm when the order comes", "set alarm", "wake me when food arrives", "alert me on arrival"):
   Confirm warmly that their arrival alarm is armed! Provide the direct tracking link with the alarm parameter:
-  "I have armed your arrival alarm! A loud chime will automatically ring the moment your delivery arrives: [🔔 Open Live Tracking & Armed Alarm]({f'/orders/{active_order.id}/tracking?alarm=true' if active_order else '#'})"
+  "I have armed your arrival alarm! A loud chime will automatically ring the moment your delivery arrives: [🔔 Open Live Tracking & Armed Alarm]({f'/orders/{active_order.id}/tracking?alarm=true' if active_order else '/orders/tracking?alarm=true'})"
 
 8. **Tone**: Warm, enthusiastic, concise, and helpful.
 """
@@ -1474,6 +1474,91 @@ class ShoppingAgent:
                 "chat_response": chat_resp.model_dump(mode="json"),
             }
             return
+
+        # 3.6 Autonomous Live Order Tracking Fast-Path
+        is_tracking_intent = any(k in u_clean for k in [
+            "tracking page", "show me the tracking", "show tracking", "go to tracking",
+            "track order", "track my order", "order tracking", "where is my order",
+            "live tracking", "track my food", "tracking", "take me to tracking",
+            "bring me to tracking", "open tracking"
+        ]) or (
+            re.search(r"\b(track|tracking)\b", u_clean) is not None
+            and any(w in u_clean for w in ["go", "open", "show", "view", "page", "my", "where", "status"])
+        )
+
+        if is_tracking_intent:
+            found_order = active_order
+            if not found_order:
+                # 1. Search by conversation_id
+                res = await db.execute(
+                    select(Order)
+                    .where(Order.conversation_id == conversation.id)
+                    .order_by(Order.created_at.desc())
+                    .limit(1)
+                )
+                found_order = res.scalar_one_or_none()
+            if not found_order and conversation.customer_id:
+                # 2. Search by customer_id
+                res = await db.execute(
+                    select(Order)
+                    .where(Order.customer_id == conversation.customer_id)
+                    .order_by(Order.created_at.desc())
+                    .limit(1)
+                )
+                found_order = res.scalar_one_or_none()
+            if not found_order:
+                # 3. Extract order UUID from conversation message history
+                for m in reversed(conversation.messages or []):
+                    c = m.get("content", "")
+                    m_uuid = re.search(r"/orders/([0-9a-fA-F-]{36})/tracking", c) or re.search(r"([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})", c)
+                    if m_uuid:
+                        try:
+                            import uuid as _uuid
+                            ord_uuid = _uuid.UUID(m_uuid.group(1))
+                            res = await db.execute(select(Order).where(Order.id == ord_uuid))
+                            found_order = res.scalar_one_or_none()
+                            if found_order:
+                                break
+                        except Exception:
+                            pass
+            if not found_order:
+                # 4. Fallback to latest Order overall in the database
+                res = await db.execute(
+                    select(Order)
+                    .order_by(Order.created_at.desc())
+                    .limit(1)
+                )
+                found_order = res.scalar_one_or_none()
+
+            if found_order:
+                status_str = found_order.status.value if hasattr(found_order.status, "value") else str(found_order.status)
+                tracking_url = f"/orders/{found_order.id}/tracking"
+                tracking_msg = (
+                    f"Okay! Taking you to your live tracking page for **Order #{str(found_order.id)[:8]}** now... 🚀\n\n"
+                    f"• **Status:** {status_str}\n"
+                    f"• **Fulfillment:** {found_order.fulfillment_mode.title()}\n"
+                    f"• **Total:** ₹{found_order.total:.0f}\n\n"
+                    f"[🚚 Open Live Order Tracking Dashboard]({tracking_url})"
+                )
+                add_message_to_conversation(conversation, role="assistant", content=tracking_msg)
+                yield {
+                    "type": "answer",
+                    "agent": "ShoppingAgent",
+                    "content": tracking_msg,
+                    "chat_response": ChatResponse(
+                        conversation_id=conversation.id,
+                        order_id=str(found_order.id),
+                        merchant_id=found_order.merchant_id or merchant.id,
+                        merchant_name=merchant.name,
+                        message=tracking_msg,
+                        recommendations=None,
+                        cart=[],
+                        cart_total=0.0,
+                        action="tracking",
+                        payment_link=found_order.payment_link if "PAID" not in status_str.upper() else None,
+                    ).model_dump(mode="json"),
+                }
+                return
 
         # 4. Speculative In-Store Catalog Fast-Path (<5ms local search)
         spec_kw = extract_search_keywords(user_message)

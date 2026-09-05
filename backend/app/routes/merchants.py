@@ -96,3 +96,20 @@ async def delete_merchant(merchant_id: uuid.UUID, db: AsyncSession = Depends(get
         )
 
     await db.delete(merchant)
+
+
+@router.post("/seed-database")
+async def seed_database():
+    """One-time database population for Bangalore merchant ecosystem."""
+    try:
+        from scripts.seed_bangalore_200 import seed_200_bangalore_shops
+        await seed_200_bangalore_shops()
+        return {
+            "status": "success",
+            "message": "Successfully seeded 200 authentic Bangalore merchants and 5,000+ dishes."
+        }
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Seeding failed: {exc}",
+        )

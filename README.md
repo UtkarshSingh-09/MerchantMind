@@ -21,7 +21,7 @@
 
 **Track 01 · AI Growth & Agentic Commerce · Razorpay AI Buildathon 2026**
 
-[🌐 Live Demo](https://merchantmind-ai.netlify.app) · [📖 Architecture](ARCHITECTURE.md) · [🔴 Problems Log](docs/problems.md) · [🐛 Report Bug](https://github.com/UtkarshSingh-09/MerchentMind-/issues) · [💡 Request Feature](https://github.com/UtkarshSingh-09/MerchentMind-/issues)
+[🌐 Live Demo](https://merchantmind-ai.netlify.app) · [📖 Architecture](ARCHITECTURE.md) · [🔴 Problems Log](docs/problems.md) · [🐛 Report Bug](https://github.com/UtkarshSingh-09/MerchentMind-/issues/new?template=bug_report.md) · [💡 Request Feature](https://github.com/UtkarshSingh-09/MerchentMind-/issues/new?template=feature_request.md)
 
 ---
 

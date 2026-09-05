@@ -1,18 +1,19 @@
 <div align="center">
 
-# 🧠 MerchantMind
+<img width="100%" src="assets/hero.svg" alt="MerchantMind Hero" />
 
-**`Autonomous AI Shopping & Growth Agent for Razorpay Merchants`**
+<br/>
+
+`Autonomous AI Shopping & Growth Agent`<br/>
+`Multi-Agent AI · Razorpay Native · Groq LLM · Conversational Commerce`
 
 <br/>
 
 [![Python](https://img.shields.io/badge/Python-3.12-D97706?style=for-the-badge&logo=python&logoColor=white&labelColor=151515)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-991B1B?style=for-the-badge&logo=fastapi&logoColor=white&labelColor=151515)](https://fastapi.tiangolo.com)
 [![Next.js](https://img.shields.io/badge/Next.js-16-FBBF24?style=for-the-badge&logo=next.js&logoColor=white&labelColor=151515)](https://nextjs.org)
-[![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=white&labelColor=151515)](https://react.dev)
 [![Groq](https://img.shields.io/badge/Groq-Llama_3.3_70B-D97706?style=for-the-badge&labelColor=151515)](https://groq.com)
 [![Razorpay](https://img.shields.io/badge/Razorpay-Payment_Links-2962FF?style=for-the-badge&logo=razorpay&logoColor=white&labelColor=151515)](https://razorpay.com)
-[![Telegram](https://img.shields.io/badge/Telegram-Bot_API-26A5E4?style=for-the-badge&logo=telegram&logoColor=white&labelColor=151515)](https://core.telegram.org/bots)
 [![License](https://img.shields.io/badge/License-MIT-FBBF24?style=for-the-badge&labelColor=151515)](LICENSE)
 
 <br/>
@@ -25,21 +26,7 @@
 
 </div>
 
-## 📋 Table of Contents
-
-- [The Problem](#-the-problem)
-- [The Solution](#-the-solution)
-- [Architecture](#-architecture)
-- [Multi-Agent Intelligence](#-multi-agent-intelligence)
-- [Razorpay Integration Deep Dive](#-razorpay-integration-deep-dive)
-- [Core Features](#-core-features)
-- [Tech Stack](#-tech-stack)
-- [Project Structure](#-project-structure)
-- [Try It Live](#-try-it-live)
-- [API Reference](#-api-reference)
-- [Testing](#-testing)
-- [Deployment](#-deployment)
-- [License](#-license)
+<img width="100%" src="assets/system_overview.svg" alt="System Overview" />
 
 ---
 

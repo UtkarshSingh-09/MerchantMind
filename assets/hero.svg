@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0a0a0a"/>
+      <stop offset="50%" stop-color="#111111"/>
+      <stop offset="100%" stop-color="#0a0a0a"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#D97706"/>
+      <stop offset="100%" stop-color="#F59E0B"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="600" y1="0" x2="600" y2="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#D97706" stop-opacity="0.15"/>
+      <stop offset="50%" stop-color="#D97706" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#D97706" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="0" stdDeviation="12" flood-color="#D97706" flood-opacity="0.3"/>
+    </filter>
+    <filter id="textglow">
+      <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#D97706" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="400" fill="url(#bg)"/>
+  <rect width="1200" height="400" fill="url(#glow)"/>
+  
+  <!-- Border lines -->
+  <line x1="40" y1="2" x2="1160" y2="2" stroke="#D97706" stroke-width="2" stroke-opacity="0.6"/>
+  <line x1="40" y1="398" x2="1160" y2="398" stroke="#D97706" stroke-width="2" stroke-opacity="0.6"/>
+  
+  <!-- Corner accents -->
+  <path d="M2 40 L2 2 L40 2" stroke="#D97706" stroke-width="2.5" fill="none"/>
+  <path d="M1198 40 L1198 2 L1160 2" stroke="#D97706" stroke-width="2.5" fill="none"/>
+  <path d="M2 360 L2 398 L40 398" stroke="#D97706" stroke-width="2.5" fill="none"/>
+  <path d="M1198 360 L1198 398 L1160 398" stroke="#D97706" stroke-width="2.5" fill="none"/>
+  
+  <!-- Corner dots -->
+  <circle cx="40" cy="40" r="3" fill="#D97706" opacity="0.8"/>
+  <circle cx="1160" cy="40" r="3" fill="#D97706" opacity="0.8"/>
+  <circle cx="40" cy="360" r="3" fill="#D97706" opacity="0.8"/>
+  <circle cx="1160" cy="360" r="3" fill="#D97706" opacity="0.8"/>
+  
+  <!-- Scattered dots -->
+  <circle cx="150" cy="80" r="2" fill="#D97706" opacity="0.4"/>
+  <circle cx="1050" cy="80" r="2" fill="#D97706" opacity="0.4"/>
+  <circle cx="200" cy="320" r="2" fill="#D97706" opacity="0.3"/>
+  <circle cx="1000" cy="320" r="2" fill="#D97706" opacity="0.3"/>
+  <circle cx="300" cy="60" r="1.5" fill="#991B1B" opacity="0.5"/>
+  <circle cx="900" cy="340" r="1.5" fill="#991B1B" opacity="0.5"/>
+  <circle cx="100" cy="200" r="2" fill="#D97706" opacity="0.2"/>
+  <circle cx="1100" cy="200" r="2" fill="#D97706" opacity="0.2"/>
+
+  <!-- Brain icon -->
+  <g transform="translate(600, 95)" filter="url(#shadow)">
+    <circle cx="0" cy="0" r="38" fill="none" stroke="url(#accent)" stroke-width="2.5"/>
+    <circle cx="0" cy="0" r="30" fill="#D97706" fill-opacity="0.1"/>
+    <!-- Brain shape -->
+    <path d="M-12 8 C-12 8 -16 2 -16 -4 C-16 -10 -12 -14 -8 -14 C-4 -14 -2 -12 0 -10 C2 -12 4 -14 8 -14 C12 -14 16 -10 16 -4 C16 2 12 8 12 8" stroke="#F59E0B" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <path d="M0 -10 L0 12" stroke="#F59E0B" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M-10 -2 C-6 -2 -4 0 0 0 C4 0 6 -2 10 -2" stroke="#F59E0B" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+    <path d="M-8 5 C-4 5 -2 3 0 3 C2 3 4 5 8 5" stroke="#F59E0B" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+    <!-- Neural nodes -->
+    <circle cx="-18" cy="-8" r="2" fill="#D97706"/>
+    <circle cx="18" cy="-8" r="2" fill="#D97706"/>
+    <circle cx="-14" cy="10" r="2" fill="#D97706"/>
+    <circle cx="14" cy="10" r="2" fill="#D97706"/>
+    <circle cx="0" cy="-16" r="2" fill="#D97706"/>
+  </g>
+
+  <!-- Title -->
+  <text x="600" y="175" text-anchor="middle" font-family="'Courier New', monospace" font-size="52" font-weight="bold" fill="#F5F5F5" letter-spacing="16" filter="url(#textglow)">MERCHANTMIND</text>
+
+  <!-- Subtitle -->
+  <text x="600" y="215" text-anchor="middle" font-family="'Courier New', monospace" font-size="14" fill="#D97706" letter-spacing="5" text-transform="uppercase">AUTONOMOUS AI SHOPPING &amp; GROWTH AGENT</text>
+
+  <!-- Divider -->
+  <line x1="350" y1="235" x2="850" y2="235" stroke="#D97706" stroke-width="0.5" stroke-opacity="0.4"/>
+
+  <!-- Tech descriptors -->
+  <text x="600" y="260" text-anchor="middle" font-family="'Courier New', monospace" font-size="11" fill="#888888" letter-spacing="3">MULTI-AGENT ORCHESTRATION · RAZORPAY NATIVE · CONVERSATIONAL COMMERCE</text>
+
+  <!-- Bottom tagline boxes -->
+  <g transform="translate(600, 300)">
+    <!-- Box 1 -->
+    <rect x="-280" y="-14" width="130" height="28" rx="3" fill="#151515" stroke="#D97706" stroke-width="1" stroke-opacity="0.5"/>
+    <text x="-215" y="5" text-anchor="middle" font-family="'Courier New', monospace" font-size="10" fill="#D97706" letter-spacing="1">Multi-Agent AI</text>
+    
+    <!-- Box 2 -->
+    <rect x="-130" y="-14" width="130" height="28" rx="3" fill="#151515" stroke="#D97706" stroke-width="1" stroke-opacity="0.5"/>
+    <text x="-65" y="5" text-anchor="middle" font-family="'Courier New', monospace" font-size="10" fill="#D97706" letter-spacing="1">Razorpay Pay</text>
+
+    <!-- Box 3 -->
+    <rect x="20" y="-14" width="130" height="28" rx="3" fill="#151515" stroke="#D97706" stroke-width="1" stroke-opacity="0.5"/>
+    <text x="85" y="5" text-anchor="middle" font-family="'Courier New', monospace" font-size="10" fill="#D97706" letter-spacing="1">Groq LLM</text>
+
+    <!-- Box 4 -->
+    <rect x="170" y="-14" width="130" height="28" rx="3" fill="#151515" stroke="#D97706" stroke-width="1" stroke-opacity="0.5"/>
+    <text x="235" y="5" text-anchor="middle" font-family="'Courier New', monospace" font-size="10" fill="#D97706" letter-spacing="1">Telegram Bot</text>
+  </g>
+
+  <!-- Track line -->
+  <text x="600" y="355" text-anchor="middle" font-family="'Courier New', monospace" font-size="11" fill="#555555" letter-spacing="2">RAZORPAY AI BUILDATHON 2026 · TRACK 01: AI GROWTH &amp; AGENTIC COMMERCE</text>
+</svg>
